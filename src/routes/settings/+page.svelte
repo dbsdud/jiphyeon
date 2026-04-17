@@ -8,6 +8,7 @@
   import type {
     AppConfig,
     AppConfigPatch,
+    Density,
     DetectedEditor,
     RescaffoldMode,
     RescaffoldReport,
@@ -26,6 +27,7 @@
   let recentNotesLimit = $state(20);
   let globalShortcut = $state("");
   let quickNoteFolder = $state("");
+  let density = $state<Density>("regular");
 
   // 볼트 업데이트(재스캐폴드) 상태
   let rescaffoldMode = $state<RescaffoldMode>("add-missing");
@@ -46,6 +48,7 @@
       recentNotesLimit = cfg.recent_notes_limit;
       globalShortcut = cfg.global_shortcut;
       quickNoteFolder = cfg.quick_note_folder;
+      density = cfg.density;
     } catch (e) {
       error = String(e);
     } finally {
@@ -84,10 +87,12 @@
       recent_notes_limit: recentNotesLimit,
       global_shortcut: globalShortcut,
       quick_note_folder: quickNoteFolder,
+      density,
     };
 
     try {
       config = await updateConfig(patch);
+      document.documentElement.dataset.density = config.density;
       savedMessage = "저장되었습니다";
       setTimeout(() => {
         savedMessage = "";
@@ -160,6 +165,44 @@
         <p class="text-xs text-fg-muted">
           볼트 추가/전환/제거는 왼쪽 사이드바의 "📓 볼트" 섹션에서 할 수 있습니다.
         </p>
+      </section>
+
+      <!-- Display / Density -->
+      <section class="bg-surface-1 border border-border rounded-xl p-5">
+        <h3 class="text-sm font-semibold text-fg mb-3">디스플레이</h3>
+
+        <div class="text-xs text-fg-muted mb-2">밀도</div>
+        <div class="space-y-2">
+          <label class="flex items-start gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="density"
+              value="regular"
+              bind:group={density}
+              disabled={saving}
+              class="mt-0.5"
+            />
+            <div>
+              <div class="text-fg">기본 (Regular)</div>
+              <div class="text-xs text-fg-muted">넉넉한 여백과 표준 글자 크기</div>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="density"
+              value="compact"
+              bind:group={density}
+              disabled={saving}
+              class="mt-0.5"
+            />
+            <div>
+              <div class="text-fg">컴팩트 (Compact)</div>
+              <div class="text-xs text-fg-muted">좁은 여백, 더 많은 정보를 한 화면에</div>
+            </div>
+          </label>
+        </div>
       </section>
 
       <!-- Editor -->

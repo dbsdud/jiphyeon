@@ -88,7 +88,7 @@
   <div class="w-full max-w-xl">
     <header class="text-center mb-10">
       <div class="text-5xl mb-3">📓</div>
-      <h1 class="text-2xl font-bold text-fg mb-2">Co-Vault 시작하기</h1>
+      <h1 class="text-2xl font-bold text-fg mb-2">집현 시작하기</h1>
       <p class="text-sm text-fg-muted">
         {step === "choose"
           ? "마크다운 볼트를 연결하거나 새로 생성하세요"

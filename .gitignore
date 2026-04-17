@@ -8,3 +8,4 @@ target/
 .DS_Store
 .env
 .gstack/
+.claude/scheduled_tasks.lock

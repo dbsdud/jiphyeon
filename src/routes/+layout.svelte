@@ -13,6 +13,7 @@
     listVaults,
     switchVault,
     removeVault,
+    getConfig,
     type VaultStatus,
   } from "$lib/api";
   import type {
@@ -42,6 +43,13 @@
   let unlistenNotification: UnlistenFn | null = null;
 
   onMount(async () => {
+    try {
+      const cfg = await getConfig();
+      document.documentElement.dataset.density = cfg.density;
+    } catch (err) {
+      console.error("초기 설정 로드 실패", err);
+    }
+
     try {
       unlistenNotification = await listen<NotificationEvent>("notification", (e) => {
         toastMessage = e.payload.message;
@@ -158,7 +166,7 @@
     <!-- Sidebar -->
     <nav class="w-52 bg-surface-1 border-r border-border flex flex-col shrink-0">
       <div class="p-4 border-b border-border flex items-center justify-between">
-        <h1 class="text-sm font-bold tracking-wide text-fg">Co-Vault</h1>
+        <h1 class="text-sm font-bold tracking-wide text-fg">집현</h1>
         <button
           class="text-xs px-2 py-1 rounded bg-surface-2 border border-border text-fg-muted hover:text-fg hover:border-accent transition-colors"
           onclick={() => { clipOpen = true; }}

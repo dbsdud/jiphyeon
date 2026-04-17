@@ -82,6 +82,24 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
+/* ─────────────────────────────
+   Density — Compact mode overrides (Slice 1.2)
+   html[data-density="compact"]에서 spacing과 text-* 변수만 축소.
+   색상/radius/shadow/font-family/font-weight/line-height는 불변.
+   ───────────────────────────── */
+[data-density="compact"] {
+  --spacing: 3px;
+
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 12px;
+  --text-md: 13px;
+  --text-lg: 14px;
+  --text-xl: 16px;
+  --text-2xl: 19px;
+  --text-3xl: 24px;
+}
+
 html,
 body {
   height: 100%;

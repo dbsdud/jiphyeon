@@ -16,7 +16,7 @@ pub fn fetch_html(url: &str) -> Result<String, AppError> {
         .build()
         .map_err(|e| AppError::Network(e.to_string()))?
         .get(url)
-        .header("User-Agent", "Co-Vault-Clipper/0.2")
+        .header("User-Agent", "Jiphyeon-Clipper/0.2")
         .send()
         .map_err(|e| AppError::Network(e.to_string()))?;
 

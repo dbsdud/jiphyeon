@@ -92,6 +92,8 @@ export interface ClipResult {
   error?: string;
 }
 
+export type Density = "regular" | "compact";
+
 export interface AppConfig {
   vault_path: string | null;
   watch_debounce_ms: number;
@@ -100,6 +102,7 @@ export interface AppConfig {
   editor_command: string;
   quick_note_folder: string;
   global_shortcut: string;
+  density: Density;
 }
 
 export interface AppConfigPatch {
@@ -108,6 +111,7 @@ export interface AppConfigPatch {
   recent_notes_limit?: number;
   global_shortcut?: string;
   quick_note_folder?: string;
+  density?: Density;
 }
 
 export interface DetectedEditor {

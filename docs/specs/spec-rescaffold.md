@@ -191,7 +191,7 @@ pub enum FileAction {
 
 ## 릴리즈 파이프라인 (Spec 범위 외 메모)
 
-1. 외부 레포 `co-vault-storage-example` 훅/스킬 수정 완료
+1. 외부 레포 `jiphyeon-storage-example` 훅/스킬 수정 완료
 2. `src-tauri/templates/vault/.claude/` 에 해당 내용 재동기화 (수작업 복사 또는 스크립트화)
 3. 앱 버전 bump + 릴리즈 노트에 명시: **"기존 볼트는 Settings > 볼트 업데이트 > .claude/ 강제 업데이트 실행"**
 

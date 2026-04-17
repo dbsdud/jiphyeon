@@ -12,6 +12,15 @@ pub struct VaultEntry {
     pub name: String,
 }
 
+/// UI 밀도 모드. 전역 설정으로 앱 전체 간격/폰트를 제어한다.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Density {
+    #[default]
+    Regular,
+    Compact,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     /// 현재 활성 볼트 경로. `None`이면 볼트 미연결 상태.
@@ -25,6 +34,9 @@ pub struct AppConfig {
     pub editor_command: String,
     pub quick_note_folder: String,
     pub global_shortcut: String,
+    /// UI 밀도 (Regular/Compact). 구 config에 없으면 Regular.
+    #[serde(default)]
+    pub density: Density,
 }
 
 impl Default for AppConfig {
@@ -43,6 +55,7 @@ impl Default for AppConfig {
             editor_command: "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code".to_string(),
             quick_note_folder: "inbox".to_string(),
             global_shortcut: "CmdOrCtrl+Shift+N".to_string(),
+            density: Density::Regular,
         }
     }
 }
@@ -89,6 +102,7 @@ pub struct AppConfigPatch {
     pub recent_notes_limit: Option<usize>,
     pub global_shortcut: Option<String>,
     pub quick_note_folder: Option<String>,
+    pub density: Option<Density>,
 }
 
 impl AppConfig {
@@ -109,6 +123,9 @@ impl AppConfig {
         }
         if let Some(v) = patch.quick_note_folder {
             next.quick_note_folder = v;
+        }
+        if let Some(v) = patch.density {
+            next.density = v;
         }
         next
     }
@@ -280,5 +297,118 @@ mod tests {
         let next = base.merged_with(patch);
 
         assert_eq!(next.exclude_dirs, vec!["only".to_string()]);
+    }
+
+    // ─────────────────────────────────────────
+    // Slice 1.2 — Density (컴팩트/기본 밀도)
+    // ─────────────────────────────────────────
+
+    // BC #1-2: enum → JSON 소문자
+    #[test]
+    fn density_serializes_to_lowercase_string() {
+        assert_eq!(serde_json::to_string(&Density::Regular).unwrap(), "\"regular\"");
+        assert_eq!(serde_json::to_string(&Density::Compact).unwrap(), "\"compact\"");
+    }
+
+    // BC #3-4: JSON 소문자 → enum
+    #[test]
+    fn density_deserializes_from_lowercase_string() {
+        assert_eq!(
+            serde_json::from_str::<Density>("\"regular\"").unwrap(),
+            Density::Regular
+        );
+        assert_eq!(
+            serde_json::from_str::<Density>("\"compact\"").unwrap(),
+            Density::Compact
+        );
+    }
+
+    // BC: default → Regular
+    #[test]
+    fn density_default_is_regular() {
+        assert_eq!(Density::default(), Density::Regular);
+    }
+
+    // BC #8: AppConfig::default().density == Regular
+    #[test]
+    fn app_config_default_density_is_regular() {
+        assert_eq!(AppConfig::default().density, Density::Regular);
+    }
+
+    // BC #6: 구 config.json (density 필드 없음) → Regular로 로드
+    #[test]
+    fn load_config_missing_density_field_uses_default() {
+        let dir = TempDir::new().unwrap();
+        // density 필드 없는 기존 스키마
+        let legacy_json = r#"{
+            "vault_path": null,
+            "vaults": [],
+            "watch_debounce_ms": 500,
+            "recent_notes_limit": 20,
+            "exclude_dirs": [],
+            "editor_command": "code",
+            "quick_note_folder": "inbox",
+            "global_shortcut": "CmdOrCtrl+Shift+N"
+        }"#;
+        fs::write(config_path(dir.path()), legacy_json).unwrap();
+
+        let loaded = load_config(dir.path());
+        assert_eq!(loaded.density, Density::Regular);
+    }
+
+    // BC #7: Compact 저장 후 load roundtrip
+    #[test]
+    fn save_then_load_preserves_compact_density() {
+        let dir = TempDir::new().unwrap();
+        let cfg = AppConfig {
+            density: Density::Compact,
+            ..Default::default()
+        };
+
+        save_config(&cfg, dir.path()).unwrap();
+        let loaded = load_config(dir.path());
+
+        assert_eq!(loaded.density, Density::Compact);
+    }
+
+    // BC #9: Some(Compact) patch → Compact 전환
+    #[test]
+    fn merged_with_applies_some_density() {
+        let base = AppConfig::default();
+        let patch = AppConfigPatch {
+            density: Some(Density::Compact),
+            ..Default::default()
+        };
+        let next = base.merged_with(patch);
+
+        assert_eq!(next.density, Density::Compact);
+    }
+
+    // BC #10: None patch → 기존 density 유지
+    #[test]
+    fn merged_with_none_density_keeps_original() {
+        let base = AppConfig {
+            density: Density::Compact,
+            ..Default::default()
+        };
+        let next = base.merged_with(AppConfigPatch::default());
+
+        assert_eq!(next.density, Density::Compact);
+    }
+
+    // BC #11: Compact → Regular 전환
+    #[test]
+    fn merged_with_can_switch_compact_to_regular() {
+        let base = AppConfig {
+            density: Density::Compact,
+            ..Default::default()
+        };
+        let patch = AppConfigPatch {
+            density: Some(Density::Regular),
+            ..Default::default()
+        };
+        let next = base.merged_with(patch);
+
+        assert_eq!(next.density, Density::Regular);
     }
 }
