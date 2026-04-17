@@ -164,6 +164,12 @@ v1.0 MVP까지의 경로: [`docs/plans/v1.0-mvp-roadmap.md`](docs/plans/v1.0-mvp
 
 ---
 
+## 후원
+
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/dbsdud?style=flat&logo=githubsponsors)](https://github.com/sponsors/dbsdud)
+
+---
+
 ## 라이선스
 
 MIT
