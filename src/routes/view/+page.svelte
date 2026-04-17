@@ -45,7 +45,7 @@
 
 <div class="p-6 max-w-3xl mx-auto">
   {#if loading}
-    <p class="text-sm text-muted">Loading...</p>
+    <p class="text-sm text-fg-muted">Loading...</p>
   {:else if error}
     <div class="bg-danger/10 border border-danger/30 rounded-lg p-4 text-danger text-sm">
       {error}
@@ -56,7 +56,7 @@
       <div class="flex items-center justify-between mb-2">
         <h1 class="text-2xl font-bold">{note.title}</h1>
         <button
-          class="text-xs px-3 py-1.5 rounded bg-surface-2 border border-border text-muted hover:text-white hover:border-accent transition-colors"
+          class="text-xs px-3 py-1.5 rounded bg-surface-2 border border-border text-fg-muted hover:text-fg hover:border-accent transition-colors"
           onclick={handleOpenEditor}
         >
           Open in Editor
@@ -65,7 +65,7 @@
 
       <!-- Metadata -->
       {#if note.frontmatter}
-        <div class="flex items-center gap-3 text-sm text-muted">
+        <div class="flex items-center gap-3 text-sm text-fg-muted">
           <span class="px-2 py-0.5 rounded bg-surface-2">{typeLabel(note.frontmatter.note_type)}</span>
           {#if note.frontmatter.status}
             <span>{note.frontmatter.status}</span>
@@ -81,7 +81,7 @@
           {/each}
         </div>
       {/if}
-      <div class="text-xs text-muted mt-1">{note.path}</div>
+      <div class="text-xs text-fg-muted mt-1">{note.path}</div>
     </div>
 
     <!-- Content -->
@@ -92,7 +92,7 @@
     <!-- Outgoing Links -->
     {#if note.outgoing_links.length > 0}
       <div class="border-t border-border pt-4 mb-4">
-        <h3 class="text-sm font-medium text-muted mb-2">Outgoing Links ({note.outgoing_links.length})</h3>
+        <h3 class="text-sm font-medium text-fg-muted mb-2">Outgoing Links ({note.outgoing_links.length})</h3>
         <div class="flex flex-wrap gap-1.5">
           {#each note.outgoing_links as link}
             <a
@@ -109,7 +109,7 @@
     <!-- Backlinks -->
     {#if note.backlinks.length > 0}
       <div class="border-t border-border pt-4">
-        <h3 class="text-sm font-medium text-muted mb-2">Backlinks ({note.backlinks.length})</h3>
+        <h3 class="text-sm font-medium text-fg-muted mb-2">Backlinks ({note.backlinks.length})</h3>
         <div class="space-y-1">
           {#each note.backlinks as bl}
             <a
@@ -118,9 +118,9 @@
             >
               <span class="text-sm text-accent">{bl.title}</span>
               {#if bl.note_type}
-                <span class="text-xs text-muted">{typeLabel(bl.note_type)}</span>
+                <span class="text-xs text-fg-muted">{typeLabel(bl.note_type)}</span>
               {/if}
-              <span class="text-xs text-muted truncate">{bl.context}</span>
+              <span class="text-xs text-fg-muted truncate">{bl.context}</span>
             </a>
           {/each}
         </div>

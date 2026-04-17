@@ -18,10 +18,10 @@
   });
 
   const BG_CLASSES: Record<NotificationLevel, string> = {
-    success: "bg-success/90 text-white",
-    error: "bg-danger/90 text-white",
-    warn: "bg-warning/90 text-white",
-    info: "bg-surface-2/95 text-white",
+    success: "bg-success/90 text-fg",
+    error: "bg-danger/90 text-fg",
+    warn: "bg-warning/90 text-fg",
+    info: "bg-surface-2/95 text-fg",
   };
 </script>
 
@@ -30,7 +30,7 @@
     class="fixed bottom-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm flex items-center gap-2 animate-slide-up {BG_CLASSES[type]}"
   >
     <span>{message}</span>
-    <button class="text-white/70 hover:text-white text-xs ml-2" onclick={onclose}>x</button>
+    <button class="text-fg/70 hover:text-fg text-xs ml-2" onclick={onclose}>x</button>
   </div>
 {/if}
 

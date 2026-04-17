@@ -125,7 +125,7 @@
 </svg>
 
 {#if hoveredTag}
-  <div class="text-xs text-muted mt-1">
+  <div class="text-xs text-fg-muted mt-1">
     {hoveredTag}: {tags.find((t) => t.name === hoveredTag)?.count ?? 0} notes
   </div>
 {/if}

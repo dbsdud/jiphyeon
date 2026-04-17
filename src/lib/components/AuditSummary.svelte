@@ -33,7 +33,7 @@
 </script>
 
 <div class="space-y-3">
-  <h3 class="text-sm font-medium text-muted">Audit Summary</h3>
+  <h3 class="text-sm font-medium text-fg-muted">Audit Summary</h3>
 
   <!-- Orphan Notes -->
   <div class="bg-surface-1 rounded-lg border border-border overflow-hidden">
@@ -47,7 +47,7 @@
           {orphanNotes.length}
         </span>
       </div>
-      <span class="text-xs text-muted">{orphanExpanded ? "▲" : "▼"}</span>
+      <span class="text-xs text-fg-muted">{orphanExpanded ? "▲" : "▼"}</span>
     </button>
     {#if orphanExpanded && orphanNotes.length > 0}
       <div class="border-t border-border divide-y divide-border max-h-48 overflow-y-auto">
@@ -57,7 +57,7 @@
             class="flex items-center justify-between px-4 py-2 hover:bg-surface-2 transition-colors text-sm"
           >
             <span class="truncate">{note.title}</span>
-            <span class="text-xs text-muted shrink-0 ml-2">{formatDate(note.modified_at)}</span>
+            <span class="text-xs text-fg-muted shrink-0 ml-2">{formatDate(note.modified_at)}</span>
           </a>
         {/each}
       </div>
@@ -76,7 +76,7 @@
           {brokenLinks.length}
         </span>
       </div>
-      <span class="text-xs text-muted">{brokenExpanded ? "▲" : "▼"}</span>
+      <span class="text-xs text-fg-muted">{brokenExpanded ? "▲" : "▼"}</span>
     </button>
     {#if brokenExpanded && brokenLinks.length > 0}
       <div class="border-t border-border px-4 py-2 max-h-48 overflow-y-auto">
@@ -98,12 +98,12 @@
       onclick={() => { staleExpanded = !staleExpanded; }}
     >
       <div class="flex items-center gap-2">
-        <span class="text-muted text-sm">Stale Notes</span>
-        <span class="text-xs px-1.5 py-0.5 rounded-full bg-surface-3 text-muted">
+        <span class="text-fg-muted text-sm">Stale Notes</span>
+        <span class="text-xs px-1.5 py-0.5 rounded-full bg-surface-3 text-fg-muted">
           {staleNotes.length}
         </span>
       </div>
-      <span class="text-xs text-muted">{staleExpanded ? "▲" : "▼"}</span>
+      <span class="text-xs text-fg-muted">{staleExpanded ? "▲" : "▼"}</span>
     </button>
     {#if staleExpanded && staleNotes.length > 0}
       <div class="border-t border-border divide-y divide-border max-h-48 overflow-y-auto">
@@ -113,7 +113,7 @@
             class="flex items-center justify-between px-4 py-2 hover:bg-surface-2 transition-colors text-sm"
           >
             <span class="truncate">{note.title}</span>
-            <span class="text-xs text-muted shrink-0 ml-2">{formatDate(note.modified_at)}</span>
+            <span class="text-xs text-fg-muted shrink-0 ml-2">{formatDate(note.modified_at)}</span>
           </a>
         {/each}
       </div>

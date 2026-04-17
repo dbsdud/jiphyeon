@@ -148,7 +148,7 @@
 {#if isCapture}
   {@render children()}
 {:else if vaultStatus === null}
-  <div class="min-h-screen flex items-center justify-center text-sm text-muted">
+  <div class="min-h-screen flex items-center justify-center text-sm text-fg-muted">
     Loading...
   </div>
 {:else if !vaultStatus.connected}
@@ -158,9 +158,9 @@
     <!-- Sidebar -->
     <nav class="w-52 bg-surface-1 border-r border-border flex flex-col shrink-0">
       <div class="p-4 border-b border-border flex items-center justify-between">
-        <h1 class="text-sm font-bold tracking-wide text-white">Co-Vault</h1>
+        <h1 class="text-sm font-bold tracking-wide text-fg">Co-Vault</h1>
         <button
-          class="text-xs px-2 py-1 rounded bg-surface-2 border border-border text-muted hover:text-white hover:border-accent transition-colors"
+          class="text-xs px-2 py-1 rounded bg-surface-2 border border-border text-fg-muted hover:text-fg hover:border-accent transition-colors"
           onclick={() => { clipOpen = true; }}
           title="Web Clip"
         >
@@ -171,9 +171,9 @@
       <!-- Vaults -->
       <div class="border-b border-border py-2">
         <div class="flex items-center justify-between px-4 mb-1">
-          <span class="text-xs font-semibold text-muted uppercase tracking-wide">📓 볼트</span>
+          <span class="text-xs font-semibold text-fg-muted uppercase tracking-wide">📓 볼트</span>
           <button
-            class="text-sm text-muted hover:text-white w-5 h-5 flex items-center justify-center rounded hover:bg-surface-2"
+            class="text-sm text-fg-muted hover:text-fg w-5 h-5 flex items-center justify-center rounded hover:bg-surface-2"
             onclick={() => { addVaultOpen = true; }}
             title="볼트 추가"
             aria-label="볼트 추가"
@@ -187,7 +187,7 @@
             <div class="group flex items-center px-4 py-1 hover:bg-surface-2 transition-colors">
               <button
                 class="flex-1 flex items-center gap-2 min-w-0 text-left text-sm
-                  {isActive ? 'text-white font-medium' : 'text-muted hover:text-white'}
+                  {isActive ? 'text-fg font-medium' : 'text-fg-muted hover:text-fg'}
                   disabled:opacity-50"
                 onclick={() => handleSwitch(vault.path)}
                 disabled={vaultActionBusy || isActive}
@@ -198,7 +198,7 @@
               </button>
               {#if !isActive}
                 <button
-                  class="ml-1 text-xs text-muted opacity-0 group-hover:opacity-100 hover:text-danger transition-opacity
+                  class="ml-1 text-xs text-fg-muted opacity-0 group-hover:opacity-100 hover:text-danger transition-opacity
                          disabled:opacity-30"
                   onclick={(e) => handleRemove(vault.path, vault.name, e)}
                   disabled={vaultActionBusy}
@@ -211,7 +211,7 @@
             </div>
           {/each}
           {#if vaults.length === 0}
-            <div class="px-4 py-1 text-xs text-muted">
+            <div class="px-4 py-1 text-xs text-fg-muted">
               등록된 볼트 없음
             </div>
           {/if}
@@ -224,8 +224,8 @@
             href={item.href}
             class="flex items-center gap-2 px-4 py-2 text-sm transition-colors
               {currentPath === item.href
-                ? 'text-white bg-surface-2'
-                : 'text-muted hover:text-white hover:bg-surface-2'}"
+                ? 'text-fg bg-surface-2'
+                : 'text-fg-muted hover:text-fg hover:bg-surface-2'}"
             onclick={(e) => { navigate(item.href); }}
           >
             <span>{item.icon}</span>
@@ -233,7 +233,7 @@
           </a>
         {/each}
       </div>
-      <div class="p-3 border-t border-border text-xs text-muted">
+      <div class="p-3 border-t border-border text-xs text-fg-muted">
         v0.5.0
       </div>
     </nav>

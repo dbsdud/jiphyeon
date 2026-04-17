@@ -63,7 +63,7 @@
   <h2 class="text-xl font-semibold mb-6">🤖 Claude 도구</h2>
 
   {#if loading}
-    <p class="text-muted text-sm">Loading...</p>
+    <p class="text-fg-muted text-sm">Loading...</p>
   {:else if error}
     <div class="bg-danger/10 border border-danger/30 rounded-lg p-4 text-sm text-danger">
       {error}
@@ -72,7 +72,7 @@
     <div class="space-y-8">
       <!-- CLAUDE.md -->
       <section>
-        <h3 class="text-sm font-semibold text-muted mb-3">CLAUDE.md</h3>
+        <h3 class="text-sm font-semibold text-fg-muted mb-3">CLAUDE.md</h3>
         {#if tools.claude_md && claudeNote}
           <article
             class="bg-surface-1 border border-border rounded-xl p-6 prose prose-invert prose-sm max-w-none"
@@ -80,11 +80,11 @@
             {@html claudeNote.html}
           </article>
         {:else if tools.claude_md}
-          <div class="bg-surface-1 border border-border rounded-xl p-4 text-sm text-muted">
+          <div class="bg-surface-1 border border-border rounded-xl p-4 text-sm text-fg-muted">
             CLAUDE.md 파일을 읽을 수 없습니다.
           </div>
         {:else}
-          <div class="bg-surface-1 border border-border rounded-xl p-4 text-sm text-muted">
+          <div class="bg-surface-1 border border-border rounded-xl p-4 text-sm text-fg-muted">
             볼트 루트에 CLAUDE.md가 없습니다. 스캐폴드된 볼트에서는 자동 생성됩니다.
           </div>
         {/if}
@@ -92,7 +92,7 @@
 
       <!-- Skills -->
       <section>
-        <h3 class="text-sm font-semibold text-muted mb-3">
+        <h3 class="text-sm font-semibold text-fg-muted mb-3">
           Skills ({tools.skills.length})
         </h3>
 
@@ -104,13 +104,13 @@
                 class="block bg-surface-1 border border-border rounded-xl p-4
                        hover:border-accent hover:bg-surface-2 transition-colors"
               >
-                <div class="font-mono text-sm text-white mb-1">{skill.name}</div>
-                <div class="text-xs text-muted line-clamp-2">{skill.description}</div>
+                <div class="font-mono text-sm text-fg mb-1">{skill.name}</div>
+                <div class="text-xs text-fg-muted line-clamp-2">{skill.description}</div>
               </a>
             {/each}
           </div>
         {:else if tools.skill_warnings.length === 0}
-          <div class="bg-surface-1 border border-border rounded-xl p-4 text-sm text-muted">
+          <div class="bg-surface-1 border border-border rounded-xl p-4 text-sm text-fg-muted">
             스킬이 없습니다. <code class="font-mono">.claude/skills/&lt;name&gt;/SKILL.md</code> 파일을 추가하세요.
           </div>
         {/if}
@@ -135,7 +135,7 @@
               <ul class="border-t border-warning/30 divide-y divide-warning/20">
                 {#each tools.skill_warnings as warning}
                   <li class="px-4 py-3">
-                    <div class="font-mono text-xs text-white mb-1">{warning.path}</div>
+                    <div class="font-mono text-xs text-fg mb-1">{warning.path}</div>
                     <div class="text-xs text-warning">{warning.reason}</div>
                   </li>
                 {/each}
@@ -147,7 +147,7 @@
 
       <!-- Hooks -->
       <section>
-        <h3 class="text-sm font-semibold text-muted mb-3">
+        <h3 class="text-sm font-semibold text-fg-muted mb-3">
           Hooks ({tools.hooks.length})
         </h3>
 
@@ -163,15 +163,15 @@
             {#each [...hooksByEvent.entries()] as [event, eventHooks]}
               <div class="bg-surface-1 border border-border rounded-xl overflow-hidden">
                 <div class="px-4 py-2 border-b border-border bg-surface-2">
-                  <span class="text-xs font-mono text-white">{event}</span>
-                  <span class="text-xs text-muted ml-2">({eventHooks.length})</span>
+                  <span class="text-xs font-mono text-fg">{event}</span>
+                  <span class="text-xs text-fg-muted ml-2">({eventHooks.length})</span>
                 </div>
                 <div class="divide-y divide-border">
                   {#each eventHooks as hook}
                     <div class="px-4 py-3">
                       {#if hook.matcher}
-                        <div class="text-xs text-muted mb-1">
-                          매처: <span class="font-mono text-white">{hook.matcher}</span>
+                        <div class="text-xs text-fg-muted mb-1">
+                          매처: <span class="font-mono text-fg">{hook.matcher}</span>
                         </div>
                       {/if}
                       {#if hook.script_path}
@@ -182,7 +182,7 @@
                           {hook.script_path}
                         </a>
                       {:else}
-                        <div class="font-mono text-xs text-white break-all">
+                        <div class="font-mono text-xs text-fg break-all">
                           {hook.command}
                         </div>
                       {/if}
@@ -193,7 +193,7 @@
             {/each}
           </div>
         {:else if !tools.hooks_error}
-          <div class="bg-surface-1 border border-border rounded-xl p-4 text-sm text-muted">
+          <div class="bg-surface-1 border border-border rounded-xl p-4 text-sm text-fg-muted">
             등록된 훅이 없습니다. `.claude/settings.json`의 `hooks` 섹션에서 설정합니다.
           </div>
         {/if}

@@ -137,7 +137,7 @@
 
 <svg
   bind:this={svgEl}
-  class="w-full h-full bg-surface"
+  class="w-full h-full bg-surface-0"
   viewBox="0 0 {width} {height}"
 >
   <g transform="translate({transform.x},{transform.y}) scale({transform.k})">
