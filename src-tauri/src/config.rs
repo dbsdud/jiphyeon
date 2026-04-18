@@ -52,6 +52,9 @@ pub struct AppConfig {
     /// 테마 선호 (Light/Dark/System). 구 config에 없으면 System.
     #[serde(default)]
     pub theme: ThemePreference,
+    /// 사이드바 접힘 여부. 구 config에 없으면 false(펼침).
+    #[serde(default)]
+    pub sidebar_collapsed: bool,
 }
 
 impl Default for AppConfig {
@@ -72,6 +75,7 @@ impl Default for AppConfig {
             global_shortcut: "CmdOrCtrl+Shift+N".to_string(),
             density: Density::Regular,
             theme: ThemePreference::System,
+            sidebar_collapsed: false,
         }
     }
 }
@@ -120,6 +124,7 @@ pub struct AppConfigPatch {
     pub quick_note_folder: Option<String>,
     pub density: Option<Density>,
     pub theme: Option<ThemePreference>,
+    pub sidebar_collapsed: Option<bool>,
 }
 
 impl AppConfig {
@@ -146,6 +151,9 @@ impl AppConfig {
         }
         if let Some(v) = patch.theme {
             next.theme = v;
+        }
+        if let Some(v) = patch.sidebar_collapsed {
+            next.sidebar_collapsed = v;
         }
         next
     }
@@ -590,5 +598,101 @@ mod tests {
             ..Default::default()
         });
         assert_eq!(to_light.theme, ThemePreference::Light);
+    }
+
+    // ─────────────────────────────────────────
+    // Slice 1.6 — sidebar_collapsed (사이드바 접기/펴기)
+    // spec: docs/specs/spec-sidebar-collapse.md
+    // ─────────────────────────────────────────
+
+    // BC #1: AppConfig::default().sidebar_collapsed == false
+    #[test]
+    fn app_config_default_sidebar_collapsed_is_false() {
+        assert!(!AppConfig::default().sidebar_collapsed);
+    }
+
+    // BC #2: 구 config.json (sidebar_collapsed 필드 없음) → false
+    #[test]
+    fn load_config_missing_sidebar_collapsed_field_uses_default() {
+        let dir = TempDir::new().unwrap();
+        let legacy_json = r#"{
+            "vault_path": null,
+            "vaults": [],
+            "watch_debounce_ms": 500,
+            "recent_notes_limit": 20,
+            "exclude_dirs": [],
+            "editor_command": "code",
+            "quick_note_folder": "inbox",
+            "global_shortcut": "CmdOrCtrl+Shift+N",
+            "density": "regular",
+            "theme": "system"
+        }"#;
+        fs::write(config_path(dir.path()), legacy_json).unwrap();
+
+        let loaded = load_config(dir.path());
+        assert!(!loaded.sidebar_collapsed);
+    }
+
+    // BC #3: true 저장 후 load roundtrip
+    #[test]
+    fn save_then_load_preserves_sidebar_collapsed_true() {
+        let dir = TempDir::new().unwrap();
+        let cfg = AppConfig {
+            sidebar_collapsed: true,
+            ..Default::default()
+        };
+
+        save_config(&cfg, dir.path()).unwrap();
+        let loaded = load_config(dir.path());
+
+        assert!(loaded.sidebar_collapsed);
+    }
+
+    // BC #4: Some(true) patch → 반영
+    #[test]
+    fn merged_with_applies_some_sidebar_collapsed() {
+        let base = AppConfig::default(); // false
+        let patch = AppConfigPatch {
+            sidebar_collapsed: Some(true),
+            ..Default::default()
+        };
+        let next = base.merged_with(patch);
+
+        assert!(next.sidebar_collapsed);
+    }
+
+    // BC #5: None patch → 기존 값 유지
+    #[test]
+    fn merged_with_none_sidebar_collapsed_keeps_original() {
+        let base = AppConfig {
+            sidebar_collapsed: true,
+            ..Default::default()
+        };
+        let next = base.merged_with(AppConfigPatch::default());
+
+        assert!(next.sidebar_collapsed);
+    }
+
+    // BC #6: 펼침 ↔ 접힘 토글 가능
+    #[test]
+    fn merged_with_can_toggle_sidebar_collapsed() {
+        // true → false
+        let collapsed_base = AppConfig {
+            sidebar_collapsed: true,
+            ..Default::default()
+        };
+        let to_expanded = collapsed_base.merged_with(AppConfigPatch {
+            sidebar_collapsed: Some(false),
+            ..Default::default()
+        });
+        assert!(!to_expanded.sidebar_collapsed);
+
+        // false → true
+        let expanded_base = AppConfig::default();
+        let to_collapsed = expanded_base.merged_with(AppConfigPatch {
+            sidebar_collapsed: Some(true),
+            ..Default::default()
+        });
+        assert!(to_collapsed.sidebar_collapsed);
     }
 }
