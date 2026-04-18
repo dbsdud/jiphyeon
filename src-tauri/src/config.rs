@@ -21,6 +21,18 @@ pub enum Density {
     Compact,
 }
 
+/// 사용자 테마 선호.
+/// - `Light`/`Dark`: 명시적 고정
+/// - `System`: OS 다크 모드 설정에 연동 (prefers-color-scheme)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ThemePreference {
+    Light,
+    Dark,
+    #[default]
+    System,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     /// 현재 활성 볼트 경로. `None`이면 볼트 미연결 상태.
@@ -37,6 +49,9 @@ pub struct AppConfig {
     /// UI 밀도 (Regular/Compact). 구 config에 없으면 Regular.
     #[serde(default)]
     pub density: Density,
+    /// 테마 선호 (Light/Dark/System). 구 config에 없으면 System.
+    #[serde(default)]
+    pub theme: ThemePreference,
 }
 
 impl Default for AppConfig {
@@ -56,6 +71,7 @@ impl Default for AppConfig {
             quick_note_folder: "inbox".to_string(),
             global_shortcut: "CmdOrCtrl+Shift+N".to_string(),
             density: Density::Regular,
+            theme: ThemePreference::System,
         }
     }
 }
@@ -103,6 +119,7 @@ pub struct AppConfigPatch {
     pub global_shortcut: Option<String>,
     pub quick_note_folder: Option<String>,
     pub density: Option<Density>,
+    pub theme: Option<ThemePreference>,
 }
 
 impl AppConfig {
@@ -126,6 +143,9 @@ impl AppConfig {
         }
         if let Some(v) = patch.density {
             next.density = v;
+        }
+        if let Some(v) = patch.theme {
+            next.theme = v;
         }
         next
     }
@@ -410,5 +430,165 @@ mod tests {
         let next = base.merged_with(patch);
 
         assert_eq!(next.density, Density::Regular);
+    }
+
+    // ─────────────────────────────────────────
+    // Slice 1.5 — ThemePreference (라이트/다크/시스템)
+    // spec: docs/specs/spec-theme-switcher.md
+    // ─────────────────────────────────────────
+
+    // BC #1-3: enum → JSON 소문자
+    #[test]
+    fn theme_pref_serializes_to_lowercase() {
+        assert_eq!(
+            serde_json::to_string(&ThemePreference::Light).unwrap(),
+            "\"light\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ThemePreference::Dark).unwrap(),
+            "\"dark\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ThemePreference::System).unwrap(),
+            "\"system\""
+        );
+    }
+
+    // BC #4: JSON 소문자 → enum
+    #[test]
+    fn theme_pref_deserializes_from_lowercase() {
+        assert_eq!(
+            serde_json::from_str::<ThemePreference>("\"light\"").unwrap(),
+            ThemePreference::Light
+        );
+        assert_eq!(
+            serde_json::from_str::<ThemePreference>("\"dark\"").unwrap(),
+            ThemePreference::Dark
+        );
+        assert_eq!(
+            serde_json::from_str::<ThemePreference>("\"system\"").unwrap(),
+            ThemePreference::System
+        );
+    }
+
+    // BC #5: 잘못된 문자열 거부
+    #[test]
+    fn theme_pref_rejects_invalid_string() {
+        assert!(serde_json::from_str::<ThemePreference>("\"invalid\"").is_err());
+        assert!(serde_json::from_str::<ThemePreference>("\"Light\"").is_err()); // 대문자 금지
+    }
+
+    // BC #6: default → System
+    #[test]
+    fn theme_pref_default_is_system() {
+        assert_eq!(ThemePreference::default(), ThemePreference::System);
+    }
+
+    // BC #9: AppConfig::default().theme == System
+    #[test]
+    fn app_config_default_theme_is_system() {
+        assert_eq!(AppConfig::default().theme, ThemePreference::System);
+    }
+
+    // BC #7: 구 config.json (theme 필드 없음) → System
+    #[test]
+    fn load_config_missing_theme_field_uses_default() {
+        let dir = TempDir::new().unwrap();
+        let legacy_json = r#"{
+            "vault_path": null,
+            "vaults": [],
+            "watch_debounce_ms": 500,
+            "recent_notes_limit": 20,
+            "exclude_dirs": [],
+            "editor_command": "code",
+            "quick_note_folder": "inbox",
+            "global_shortcut": "CmdOrCtrl+Shift+N",
+            "density": "regular"
+        }"#;
+        fs::write(config_path(dir.path()), legacy_json).unwrap();
+
+        let loaded = load_config(dir.path());
+        assert_eq!(loaded.theme, ThemePreference::System);
+    }
+
+    // BC #8: Light 저장 후 load roundtrip
+    #[test]
+    fn save_then_load_preserves_light_theme() {
+        let dir = TempDir::new().unwrap();
+        let cfg = AppConfig {
+            theme: ThemePreference::Light,
+            ..Default::default()
+        };
+
+        save_config(&cfg, dir.path()).unwrap();
+        let loaded = load_config(dir.path());
+
+        assert_eq!(loaded.theme, ThemePreference::Light);
+    }
+
+    // BC #8: Dark 저장 후 load roundtrip
+    #[test]
+    fn save_then_load_preserves_dark_theme() {
+        let dir = TempDir::new().unwrap();
+        let cfg = AppConfig {
+            theme: ThemePreference::Dark,
+            ..Default::default()
+        };
+
+        save_config(&cfg, dir.path()).unwrap();
+        let loaded = load_config(dir.path());
+
+        assert_eq!(loaded.theme, ThemePreference::Dark);
+    }
+
+    // BC #10: Some(theme) patch → 반영
+    #[test]
+    fn merged_with_applies_some_theme() {
+        let base = AppConfig::default(); // System
+        let patch = AppConfigPatch {
+            theme: Some(ThemePreference::Light),
+            ..Default::default()
+        };
+        let next = base.merged_with(patch);
+
+        assert_eq!(next.theme, ThemePreference::Light);
+    }
+
+    // BC #11: None patch → 기존 theme 유지
+    #[test]
+    fn merged_with_none_theme_keeps_original() {
+        let base = AppConfig {
+            theme: ThemePreference::Dark,
+            ..Default::default()
+        };
+        let next = base.merged_with(AppConfigPatch::default());
+
+        assert_eq!(next.theme, ThemePreference::Dark);
+    }
+
+    // BC #12: 전환 가능 — Light → System, Dark → Light 등
+    #[test]
+    fn merged_with_can_switch_any_theme() {
+        // Light → System
+        let light_base = AppConfig {
+            theme: ThemePreference::Light,
+            ..Default::default()
+        };
+        let to_system = light_base.merged_with(AppConfigPatch {
+            theme: Some(ThemePreference::System),
+            ..Default::default()
+        });
+        assert_eq!(to_system.theme, ThemePreference::System);
+
+        // Dark → Light
+        let dark_base = AppConfig {
+            theme: ThemePreference::Dark,
+            ..Default::default()
+        };
+        let to_light = dark_base.merged_with(AppConfigPatch {
+            theme: Some(ThemePreference::Light),
+            ..Default::default()
+        });
+        assert_eq!(to_light.theme, ThemePreference::Light);
     }
 }
