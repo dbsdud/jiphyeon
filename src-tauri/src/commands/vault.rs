@@ -7,8 +7,8 @@ use tauri::State;
 use crate::config::ConfigState;
 use crate::error::AppError;
 use crate::models::{
-    FolderNode, GraphEdge, GraphNode, LinkGraph, NoteEntry, SearchResult, TagInfo, VaultIndex,
-    VaultStats,
+    FolderNode, GodNode, GraphEdge, GraphNode, LinkGraph, NoteEntry, SearchResult, TagInfo,
+    VaultIndex, VaultStats,
 };
 use crate::vault::{indexer, search};
 
@@ -24,6 +24,15 @@ pub fn get_vault_stats(state: State<'_, VaultState>) -> Result<VaultStats, AppEr
 pub fn get_orphan_notes(state: State<'_, VaultState>) -> Result<Vec<NoteEntry>, AppError> {
     let index = state.read().map_err(|e| AppError::VaultNotFound(e.to_string()))?;
     Ok(indexer::find_orphan_notes(&index))
+}
+
+#[tauri::command]
+pub fn get_top_god_nodes(
+    state: State<'_, VaultState>,
+    limit: usize,
+) -> Result<Vec<GodNode>, AppError> {
+    let index = state.read().map_err(|e| AppError::VaultNotFound(e.to_string()))?;
+    Ok(indexer::compute_top_god_nodes(&index, limit))
 }
 
 #[tauri::command]

@@ -4,6 +4,7 @@ import type {
   NoteEntry,
   TagInfo,
   LinkGraph,
+  GodNode,
   FolderNode,
   RenderedNote,
   BacklinkEntry,
@@ -60,6 +61,10 @@ export function rescanVault(): Promise<VaultStats> {
 
 export function getOrphanNotes(): Promise<NoteEntry[]> {
   return invoke("get_orphan_notes");
+}
+
+export function getTopGodNodes(limit: number): Promise<GodNode[]> {
+  return invoke("get_top_god_nodes", { limit });
 }
 
 export function getNote(path: string): Promise<RenderedNote> {

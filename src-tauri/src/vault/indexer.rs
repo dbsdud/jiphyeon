@@ -5,7 +5,7 @@ use chrono::Utc;
 use walkdir::WalkDir;
 
 use crate::error::AppError;
-use crate::models::{NoteEntry, VaultIndex, VaultStats};
+use crate::models::{GodNode, NoteEntry, VaultIndex, VaultStats};
 use crate::vault::parser;
 
 /// 볼트 디렉토리를 재귀 스캔하여 인메모리 인덱스 구축
@@ -145,6 +145,42 @@ pub fn compute_stats(index: &VaultIndex) -> VaultStats {
         orphan_notes,
         broken_links,
     }
+}
+
+/// backlink 수 상위 N개 노트(= God Node) 반환.
+/// - incoming link 기준, self-reference 제외, broken link 제외.
+/// - 정렬: backlink_count desc → path asc (결정론적).
+/// - backlink_count가 0인 노트는 포함하지 않음.
+pub fn compute_top_god_nodes(index: &VaultIndex, limit: usize) -> Vec<GodNode> {
+    if limit == 0 {
+        return Vec::new();
+    }
+
+    let mut candidates: Vec<GodNode> = index
+        .notes
+        .iter()
+        .filter_map(|note| {
+            let sources = index.backlinks.get(&note.title)?;
+            let count = sources.iter().filter(|src| **src != note.path).count();
+            if count == 0 {
+                return None;
+            }
+            Some(GodNode {
+                path: note.path.clone(),
+                title: note.title.clone(),
+                note_type: note.frontmatter.as_ref().map(|fm| fm.note_type.clone()),
+                backlink_count: count,
+            })
+        })
+        .collect();
+
+    candidates.sort_by(|a, b| {
+        b.backlink_count
+            .cmp(&a.backlink_count)
+            .then_with(|| a.path.cmp(&b.path))
+    });
+    candidates.truncate(limit);
+    candidates
 }
 
 #[cfg(test)]
@@ -399,5 +435,143 @@ mod tests {
         assert_eq!(*stats.by_folder.get("decisions").unwrap(), 1);
         // 루트의 노트는 "." 또는 "" 키로
         assert_eq!(stats.by_folder.values().sum::<usize>(), 4);
+    }
+
+    // ── compute_top_god_nodes ──
+
+    fn make_note(path: &str, title: &str, outgoing: Vec<&str>) -> NoteEntry {
+        NoteEntry {
+            path: path.into(),
+            title: title.into(),
+            frontmatter: None,
+            outgoing_links: outgoing.into_iter().map(String::from).collect(),
+            modified_at: 0,
+            size: 0,
+            body: String::new(),
+        }
+    }
+
+    fn make_index(notes: Vec<NoteEntry>) -> VaultIndex {
+        let backlinks = build_backlinks(&notes);
+        VaultIndex {
+            notes,
+            backlinks,
+            scanned_at: 0,
+        }
+    }
+
+    #[test]
+    fn top_god_nodes_empty_index_returns_empty() {
+        let index = make_index(vec![]);
+        assert_eq!(compute_top_god_nodes(&index, 5), vec![]);
+    }
+
+    #[test]
+    fn top_god_nodes_zero_limit_returns_empty() {
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["b"]),
+            make_note("b.md", "b", vec![]),
+        ]);
+        assert_eq!(compute_top_god_nodes(&index, 0), vec![]);
+    }
+
+    #[test]
+    fn top_god_nodes_excludes_notes_without_backlinks() {
+        // a→b, c: 아무도 참조 안 함
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["b"]),
+            make_note("b.md", "b", vec![]),
+            make_note("c.md", "c", vec![]),
+        ]);
+        let result = compute_top_god_nodes(&index, 5);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].title, "b");
+        assert_eq!(result[0].backlink_count, 1);
+    }
+
+    #[test]
+    fn top_god_nodes_orders_by_backlink_count_desc() {
+        // b: 2 backlinks (a, c), e: 1 backlink (d)
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["b"]),
+            make_note("b.md", "b", vec![]),
+            make_note("c.md", "c", vec!["b"]),
+            make_note("d.md", "d", vec!["e"]),
+            make_note("e.md", "e", vec![]),
+        ]);
+        let result = compute_top_god_nodes(&index, 5);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].title, "b");
+        assert_eq!(result[0].backlink_count, 2);
+        assert_eq!(result[1].title, "e");
+        assert_eq!(result[1].backlink_count, 1);
+    }
+
+    #[test]
+    fn top_god_nodes_ties_broken_by_path_asc() {
+        // a→x, a→y: x와 y 각각 1 backlink. path z.md < y.md 순으로 asc
+        // x.path="z.md", y.path="y.md" → 기대: y가 먼저
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["x", "y"]),
+            make_note("z.md", "x", vec![]),
+            make_note("y.md", "y", vec![]),
+        ]);
+        let result = compute_top_god_nodes(&index, 5);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].path, "y.md");
+        assert_eq!(result[1].path, "z.md");
+    }
+
+    #[test]
+    fn top_god_nodes_excludes_self_reference() {
+        // a→a (self) + b→a: a의 실제 backlink_count는 1
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["a"]),
+            make_note("b.md", "b", vec!["a"]),
+        ]);
+        let result = compute_top_god_nodes(&index, 5);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].title, "a");
+        assert_eq!(result[0].backlink_count, 1);
+    }
+
+    #[test]
+    fn top_god_nodes_self_only_reference_returns_empty() {
+        // a→a 만 존재: self 제외 후 0 → 결과 제외
+        let index = make_index(vec![make_note("a.md", "a", vec!["a"])]);
+        let result = compute_top_god_nodes(&index, 5);
+        assert_eq!(result, vec![]);
+    }
+
+    #[test]
+    fn top_god_nodes_excludes_broken_links() {
+        // a→nonexistent (broken), a→b, c→b
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["nonexistent", "b"]),
+            make_note("b.md", "b", vec![]),
+            make_note("c.md", "c", vec!["b"]),
+        ]);
+        let result = compute_top_god_nodes(&index, 5);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].title, "b");
+        assert_eq!(result[0].backlink_count, 2);
+        // broken title "nonexistent"는 결과에 없어야 함
+        assert!(result.iter().all(|g| g.title != "nonexistent"));
+    }
+
+    #[test]
+    fn top_god_nodes_respects_limit() {
+        // 3개 노트가 각각 backlink=1. limit=2면 2개만 반환, path asc.
+        let index = make_index(vec![
+            make_note("src.md", "src", vec!["a", "b", "c"]),
+            make_note("a.md", "a", vec![]),
+            make_note("b.md", "b", vec![]),
+            make_note("c.md", "c", vec![]),
+        ]);
+        let result = compute_top_god_nodes(&index, 2);
+        assert_eq!(result.len(), 2);
+        // 동률이므로 path asc: a.md, b.md
+        assert_eq!(result[0].path, "a.md");
+        assert_eq!(result[1].path, "b.md");
     }
 }

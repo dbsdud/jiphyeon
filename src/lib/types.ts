@@ -54,6 +54,13 @@ export interface GraphNode {
   link_count: number;
 }
 
+export interface GodNode {
+  path: string;
+  title: string;
+  note_type?: string;
+  backlink_count: number;
+}
+
 export interface GraphEdge {
   source: string;
   target: string;

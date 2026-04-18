@@ -107,6 +107,14 @@ pub struct GraphNode {
     pub link_count: usize,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct GodNode {
+    pub path: String,
+    pub title: String,
+    pub note_type: Option<NoteType>,
+    pub backlink_count: usize,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct GraphEdge {
     pub source: String,

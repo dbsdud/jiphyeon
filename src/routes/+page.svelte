@@ -5,12 +5,14 @@
     getTagList,
     getClaudeTools,
     getVaultStatus,
+    getTopGodNodes,
   } from "$lib/api";
   import type {
     VaultStats,
     NoteEntry,
     TagInfo,
     ClaudeTools,
+    GodNode,
   } from "$lib/types";
   import AuditSummary from "$lib/components/AuditSummary.svelte";
   import TagHeatmap from "$lib/components/TagHeatmap.svelte";
@@ -20,6 +22,7 @@
   let recentNotes = $state<NoteEntry[]>([]);
   let tags = $state<TagInfo[]>([]);
   let claudeTools = $state<ClaudeTools | null>(null);
+  let godNodes = $state<GodNode[]>([]);
   let vaultName = $state("");
   let error = $state("");
 
@@ -32,18 +35,20 @@
 
   async function load() {
     try {
-      const [s, r, t, c, v] = await Promise.all([
+      const [s, r, t, c, v, g] = await Promise.all([
         getVaultStats(),
         getRecentNotes(10),
         getTagList(),
         getClaudeTools().catch(() => null),
         getVaultStatus().catch(() => null),
+        getTopGodNodes(5).catch(() => []),
       ]);
       stats = s;
       recentNotes = r;
       tags = t;
       claudeTools = c;
       vaultName = deriveName(v?.vault_path ?? null);
+      godNodes = g;
     } catch (e) {
       error = String(e);
     }
@@ -121,6 +126,38 @@
         <div class="text-2xl font-bold {stats.orphan_notes > 0 ? 'text-warning' : ''}">{stats.orphan_notes}</div>
         <div class="text-xs text-fg-muted mt-1">Orphan Notes</div>
       </div>
+    </div>
+
+    <!-- God Nodes -->
+    <div class="bg-surface-1 rounded-lg border border-border mb-6">
+      <h3 class="text-sm font-medium text-fg-muted px-4 pt-4 pb-2">God Nodes</h3>
+      {#if godNodes.length > 0}
+        <div class="divide-y divide-border">
+          {#each godNodes as node}
+            <a
+              href="/view?path={encodeURIComponent(node.path)}"
+              class="flex items-center justify-between px-4 py-2.5 hover:bg-surface-2 transition-colors"
+            >
+              <div class="flex items-center gap-3 min-w-0">
+                <span class="text-fg-muted shrink-0">🔗</span>
+                <span class="text-sm truncate">{node.title}</span>
+                {#if node.note_type}
+                  <span class="text-xs px-1.5 py-0.5 rounded bg-surface-3 text-fg-muted shrink-0">
+                    {typeLabel(node.note_type)}
+                  </span>
+                {/if}
+              </div>
+              <span class="text-xs text-fg-muted shrink-0 ml-3">
+                {node.backlink_count} refs
+              </span>
+            </a>
+          {/each}
+        </div>
+      {:else}
+        <p class="text-xs text-fg-muted px-4 pb-4">
+          아직 핵심 노트가 없습니다. 노트 간 링크를 추가하면 여기에 표시됩니다.
+        </p>
+      {/if}
     </div>
 
     <div class="grid grid-cols-3 gap-4">
