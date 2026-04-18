@@ -69,6 +69,9 @@ export async function renderMermaid(root: HTMLElement): Promise<StageReport> {
 
     try {
       const { svg } = await mermaid.render(id, source);
+      if (!svg || svg.trim().length === 0) {
+        throw new Error("mermaid render returned empty svg");
+      }
       const container = document.createElement("div");
       container.className = "diagram diagram-mermaid";
       container.innerHTML = svg;
@@ -84,8 +87,8 @@ export async function renderMermaid(root: HTMLElement): Promise<StageReport> {
       pre.after(overlay);
       pre.dataset[MARKER] = "true";
       failed += 1;
-    } finally {
-      // 방어 차원: render 실패 시 body에 남을 수 있는 임시 컨테이너 제거.
+      // 에러 경로에서만 mermaid의 임시 body 컨테이너/폭탄 SVG 잔재 청소.
+      // (성공 시에는 입력 id가 반환 SVG의 루트 id와 동일해서 지우면 안 됨.)
       document.getElementById(`d${id}`)?.remove();
       document.getElementById(id)?.remove();
     }
