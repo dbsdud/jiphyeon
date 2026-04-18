@@ -28,7 +28,7 @@
   <div>
     <div
       class="w-full text-left text-sm px-2 py-1 rounded flex items-center gap-1 transition-colors cursor-pointer
-        {selectedPath === node.path ? 'bg-accent/20 text-accent' : 'text-neutral-300 hover:bg-surface-2'}"
+        {selectedPath === node.path ? 'bg-accent/20 text-accent' : 'text-fg hover:bg-surface-2'}"
       style="padding-left: {depth * 0.75 + 0.5}rem"
       role="button"
       tabindex="0"
@@ -37,7 +37,7 @@
     >
       {#if node.children.length > 0}
         <button
-          class="text-muted hover:text-white shrink-0 w-3 text-[10px]"
+          class="text-fg-muted hover:text-fg shrink-0 w-3 text-[10px]"
           onclick={(e) => { e.stopPropagation(); toggle(node.path); }}
         >
           {expanded.has(node.path) ? "▾" : "▸"}
@@ -46,7 +46,7 @@
         <span class="w-3 shrink-0"></span>
       {/if}
       <span class="truncate">{node.name}</span>
-      <span class="text-muted text-xs ml-auto shrink-0">{node.note_count}</span>
+      <span class="text-fg-muted text-xs ml-auto shrink-0">{node.note_count}</span>
     </div>
 
     {#if node.children.length > 0 && expanded.has(node.path)}

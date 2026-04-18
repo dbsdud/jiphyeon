@@ -491,34 +491,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "co-vault-dashboard"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "html2md",
- "notify",
- "notify-debouncer-mini",
- "pulldown-cmark",
- "regex",
- "reqwest 0.12.28",
- "scraper",
- "serde",
- "serde_json",
- "serde_yaml_ng",
- "slug",
- "tantivy",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-opener",
- "tempfile",
- "thiserror 2.0.18",
- "urlencoding",
- "walkdir",
-]
-
-[[package]]
 name = "combine"
 version = "4.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2170,6 +2142,34 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps",
+]
+
+[[package]]
+name = "jiphyeon"
+version = "0.6.0"
+dependencies = [
+ "chrono",
+ "html2md",
+ "notify",
+ "notify-debouncer-mini",
+ "pulldown-cmark",
+ "regex",
+ "reqwest 0.12.28",
+ "scraper",
+ "serde",
+ "serde_json",
+ "serde_yaml_ng",
+ "slug",
+ "tantivy",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-opener",
+ "tempfile",
+ "thiserror 2.0.18",
+ "urlencoding",
+ "walkdir",
 ]
 
 [[package]]

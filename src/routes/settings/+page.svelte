@@ -8,10 +8,13 @@
   import type {
     AppConfig,
     AppConfigPatch,
+    Density,
     DetectedEditor,
     RescaffoldMode,
     RescaffoldReport,
+    ThemePreference,
   } from "$lib/types";
+  import { applyTheme, themeRefresh, themePref } from "$lib/stores/theme.svelte";
 
   let config = $state<AppConfig | null>(null);
   let editors = $state<DetectedEditor[]>([]);
@@ -26,6 +29,8 @@
   let recentNotesLimit = $state(20);
   let globalShortcut = $state("");
   let quickNoteFolder = $state("");
+  let density = $state<Density>("regular");
+  let theme = $state<ThemePreference>("system");
 
   // 볼트 업데이트(재스캐폴드) 상태
   let rescaffoldMode = $state<RescaffoldMode>("add-missing");
@@ -46,6 +51,8 @@
       recentNotesLimit = cfg.recent_notes_limit;
       globalShortcut = cfg.global_shortcut;
       quickNoteFolder = cfg.quick_note_folder;
+      density = cfg.density;
+      theme = cfg.theme;
     } catch (e) {
       error = String(e);
     } finally {
@@ -84,10 +91,16 @@
       recent_notes_limit: recentNotesLimit,
       global_shortcut: globalShortcut,
       quick_note_folder: quickNoteFolder,
+      density,
+      theme,
     };
 
     try {
       config = await updateConfig(patch);
+      document.documentElement.dataset.density = config.density;
+      themePref.set(config.theme);
+      applyTheme(config.theme);
+      themeRefresh.bump();
       savedMessage = "저장되었습니다";
       setTimeout(() => {
         savedMessage = "";
@@ -141,7 +154,7 @@
   <h2 class="text-xl font-semibold mb-6">⚙️ Settings</h2>
 
   {#if loading}
-    <p class="text-muted text-sm">Loading...</p>
+    <p class="text-fg-muted text-sm">Loading...</p>
   {:else if !config}
     <div class="bg-danger/10 border border-danger/30 rounded-lg p-4 text-sm text-danger">
       설정을 불러올 수 없습니다.
@@ -150,24 +163,110 @@
     <div class="space-y-6">
       <!-- Vault (read-only 표시; 관리는 사이드바에서) -->
       <section class="bg-surface-1 border border-border rounded-xl p-5">
-        <h3 class="text-sm font-semibold text-white mb-3">볼트</h3>
+        <h3 class="text-sm font-semibold text-fg mb-3">볼트</h3>
 
-        <div class="text-xs text-muted mb-1">현재 연결된 볼트</div>
-        <div class="font-mono text-sm text-white break-all mb-2">
+        <div class="text-xs text-fg-muted mb-1">현재 연결된 볼트</div>
+        <div class="font-mono text-sm text-fg break-all mb-2">
           {config.vault_path ?? "(연결 안 됨)"}
         </div>
 
-        <p class="text-xs text-muted">
+        <p class="text-xs text-fg-muted">
           볼트 추가/전환/제거는 왼쪽 사이드바의 "📓 볼트" 섹션에서 할 수 있습니다.
         </p>
+      </section>
+
+      <!-- Display / Density / Theme -->
+      <section class="bg-surface-1 border border-border rounded-xl p-5">
+        <h3 class="text-sm font-semibold text-fg mb-3">디스플레이</h3>
+
+        <div class="text-xs text-fg-muted mb-2">밀도</div>
+        <div class="space-y-2 mb-5">
+          <label class="flex items-start gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="density"
+              value="regular"
+              bind:group={density}
+              disabled={saving}
+              class="mt-0.5"
+            />
+            <div>
+              <div class="text-fg">기본 (Regular)</div>
+              <div class="text-xs text-fg-muted">넉넉한 여백과 표준 글자 크기</div>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="density"
+              value="compact"
+              bind:group={density}
+              disabled={saving}
+              class="mt-0.5"
+            />
+            <div>
+              <div class="text-fg">컴팩트 (Compact)</div>
+              <div class="text-xs text-fg-muted">좁은 여백, 더 많은 정보를 한 화면에</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="text-xs text-fg-muted mb-2">테마</div>
+        <div class="space-y-2">
+          <label class="flex items-start gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="theme"
+              value="system"
+              bind:group={theme}
+              disabled={saving}
+              class="mt-0.5"
+            />
+            <div>
+              <div class="text-fg">시스템 설정 따르기 (System)</div>
+              <div class="text-xs text-fg-muted">OS의 다크 모드 선호에 맞춰 자동 전환</div>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="theme"
+              value="light"
+              bind:group={theme}
+              disabled={saving}
+              class="mt-0.5"
+            />
+            <div>
+              <div class="text-fg">밝은 테마 (Light)</div>
+              <div class="text-xs text-fg-muted">햇살 들어오는 도서관 톤</div>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="theme"
+              value="dark"
+              bind:group={theme}
+              disabled={saving}
+              class="mt-0.5"
+            />
+            <div>
+              <div class="text-fg">어두운 테마 (Dark)</div>
+              <div class="text-xs text-fg-muted">집현전의 밤, 낮은 눈부심</div>
+            </div>
+          </label>
+        </div>
       </section>
 
       <!-- Editor -->
       <section class="bg-surface-1 border border-border rounded-xl p-5">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="text-sm font-semibold text-white">외부 에디터</h3>
+          <h3 class="text-sm font-semibold text-fg">외부 에디터</h3>
           <button
-            class="text-xs px-2 py-1 rounded border border-border text-muted hover:text-white hover:border-accent transition-colors"
+            class="text-xs px-2 py-1 rounded border border-border text-fg-muted hover:text-fg hover:border-accent transition-colors"
             onclick={rescanEditors}
           >
             재검색
@@ -180,8 +279,8 @@
               <button
                 class="text-xs px-3 py-1.5 rounded-full border transition-colors
                   {editorCommand === editor.command
-                    ? 'bg-accent text-white border-accent'
-                    : 'border-border text-muted hover:text-white hover:border-accent'}"
+                    ? 'bg-accent text-accent-fg border-accent'
+                    : 'border-border text-fg-muted hover:text-fg hover:border-accent'}"
                 onclick={() => pickEditor(editor)}
               >
                 {editor.label}
@@ -189,21 +288,21 @@
             {/each}
           </div>
         {:else}
-          <p class="text-xs text-muted mb-3">
+          <p class="text-xs text-fg-muted mb-3">
             감지된 에디터가 없습니다. 아래에 직접 경로/URL을 입력하세요.
           </p>
         {/if}
 
-        <label for="editor-command" class="text-xs text-muted block mb-1">
+        <label for="editor-command" class="text-xs text-fg-muted block mb-1">
           커맨드 또는 URL
-          <span class="text-muted/70">
+          <span class="text-fg-muted/70">
             (`{"{path}"}` 플레이스홀더 지원, `://` 포함 시 URL 모드)
           </span>
         </label>
         <input
           id="editor-command"
           type="text"
-          class="w-full bg-surface-0 border border-border rounded px-3 py-2 text-sm text-white font-mono
+          class="w-full bg-surface-0 border border-border rounded px-3 py-2 text-sm text-fg font-mono
                  focus:border-accent focus:outline-none"
           bind:value={editorCommand}
           placeholder={`/usr/local/bin/code 또는 obsidian://open?path={path}`}
@@ -212,30 +311,30 @@
 
       <!-- Indexing -->
       <section class="bg-surface-1 border border-border rounded-xl p-5">
-        <h3 class="text-sm font-semibold text-white mb-3">인덱싱</h3>
+        <h3 class="text-sm font-semibold text-fg mb-3">인덱싱</h3>
 
-        <label for="exclude-dirs" class="text-xs text-muted block mb-1">
+        <label for="exclude-dirs" class="text-xs text-fg-muted block mb-1">
           제외할 디렉토리 (쉼표 구분)
-          <span class="text-muted/70">
+          <span class="text-fg-muted/70">
             — 변경사항은 앱 재시작 또는 rescan 시 반영
           </span>
         </label>
         <input
           id="exclude-dirs"
           type="text"
-          class="w-full bg-surface-0 border border-border rounded px-3 py-2 text-sm text-white font-mono
+          class="w-full bg-surface-0 border border-border rounded px-3 py-2 text-sm text-fg font-mono
                  focus:border-accent focus:outline-none mb-3"
           bind:value={excludeDirsInput}
           placeholder=".git, .claude, _templates"
         />
 
-        <label for="recent-limit" class="text-xs text-muted block mb-1">최근 노트 개수</label>
+        <label for="recent-limit" class="text-xs text-fg-muted block mb-1">최근 노트 개수</label>
         <input
           id="recent-limit"
           type="number"
           min="1"
           max="200"
-          class="w-32 bg-surface-0 border border-border rounded px-3 py-2 text-sm text-white
+          class="w-32 bg-surface-0 border border-border rounded px-3 py-2 text-sm text-fg
                  focus:border-accent focus:outline-none"
           bind:value={recentNotesLimit}
         />
@@ -243,25 +342,25 @@
 
       <!-- Quick Note -->
       <section class="bg-surface-1 border border-border rounded-xl p-5">
-        <h3 class="text-sm font-semibold text-white mb-3">퀵 노트</h3>
+        <h3 class="text-sm font-semibold text-fg mb-3">퀵 노트</h3>
 
-        <label for="quick-folder" class="text-xs text-muted block mb-1">저장 폴더</label>
+        <label for="quick-folder" class="text-xs text-fg-muted block mb-1">저장 폴더</label>
         <input
           id="quick-folder"
           type="text"
-          class="w-full bg-surface-0 border border-border rounded px-3 py-2 text-sm text-white font-mono
+          class="w-full bg-surface-0 border border-border rounded px-3 py-2 text-sm text-fg font-mono
                  focus:border-accent focus:outline-none mb-3"
           bind:value={quickNoteFolder}
         />
 
-        <label for="global-shortcut" class="text-xs text-muted block mb-1">
+        <label for="global-shortcut" class="text-xs text-fg-muted block mb-1">
           글로벌 단축키
-          <span class="text-muted/70">— 변경은 앱 재시작 후 반영</span>
+          <span class="text-fg-muted/70">— 변경은 앱 재시작 후 반영</span>
         </label>
         <input
           id="global-shortcut"
           type="text"
-          class="w-full bg-surface-0 border border-border rounded px-3 py-2 text-sm text-white font-mono
+          class="w-full bg-surface-0 border border-border rounded px-3 py-2 text-sm text-fg font-mono
                  focus:border-accent focus:outline-none"
           bind:value={globalShortcut}
           placeholder="CmdOrCtrl+Shift+N"
@@ -271,7 +370,7 @@
       <!-- Save -->
       <div class="flex items-center gap-3">
         <button
-          class="text-sm px-5 py-2 rounded bg-accent text-white
+          class="text-sm px-5 py-2 rounded bg-accent text-accent-fg
                  hover:bg-accent/80 transition-colors
                  disabled:opacity-50 disabled:cursor-not-allowed"
           onclick={save}
@@ -291,8 +390,8 @@
 
       <!-- Vault Update (Rescaffold) -->
       <section class="bg-surface-1 border border-border rounded-xl p-5">
-        <h3 class="text-sm font-semibold text-white mb-2">🛠️ 볼트 업데이트</h3>
-        <p class="text-xs text-muted mb-4">
+        <h3 class="text-sm font-semibold text-fg mb-2">🛠️ 볼트 업데이트</h3>
+        <p class="text-xs text-fg-muted mb-4">
           앱 릴리즈마다 포함되는 <span class="font-mono">.claude/</span> 템플릿(훅·스킬·settings)을
           이 볼트에 반영합니다. 사용자 자산(<span class="font-mono">_moc/</span>,
           <span class="font-mono">_templates/</span>, 노트 파일)은 건드리지 않습니다.
@@ -309,8 +408,8 @@
               class="mt-0.5"
             />
             <span class="flex-1">
-              <span class="text-white">누락된 파일만 채우기 (안전)</span>
-              <span class="block text-xs text-muted">
+              <span class="text-fg">누락된 파일만 채우기 (안전)</span>
+              <span class="block text-xs text-fg-muted">
                 없는 파일만 생성합니다. 기존 파일은 내용이 달라도 그대로 둡니다.
               </span>
             </span>
@@ -326,7 +425,7 @@
             />
             <span class="flex-1">
               <span class="text-warning">⚠️ <span class="font-mono">.claude/</span> 강제 업데이트</span>
-              <span class="block text-xs text-muted">
+              <span class="block text-xs text-fg-muted">
                 <span class="font-mono">.claude/</span> 하위에서 템플릿과 다른 파일을 덮어씁니다.
                 사용자가 수정한 파일은 적용 전에 미리보기로 확인할 수 있습니다.
               </span>
@@ -336,7 +435,7 @@
 
         <div class="flex items-center gap-2 mb-3">
           <button
-            class="text-sm px-4 py-1.5 rounded border border-border text-white
+            class="text-sm px-4 py-1.5 rounded border border-border text-fg
                    hover:border-accent transition-colors
                    disabled:opacity-50 disabled:cursor-not-allowed"
             onclick={previewRescaffold}
@@ -345,7 +444,7 @@
             {rescaffoldBusy && !rescaffoldReport ? "확인 중..." : "미리보기"}
           </button>
           <button
-            class="text-sm px-4 py-1.5 rounded bg-accent text-white
+            class="text-sm px-4 py-1.5 rounded bg-accent text-accent-fg
                    hover:bg-accent/80 transition-colors
                    disabled:opacity-40 disabled:cursor-not-allowed"
             onclick={applyRescaffold}
@@ -359,10 +458,10 @@
         {#if rescaffoldReport}
           <div class="bg-surface-0 border border-border rounded-lg p-4 text-sm">
             <div class="flex items-center justify-between mb-2">
-              <span class="text-white font-medium">
+              <span class="text-fg font-medium">
                 {rescaffoldReport.dry_run ? "미리보기" : "적용 결과"}
               </span>
-              <span class="text-xs text-muted">
+              <span class="text-xs text-fg-muted">
                 모드: <span class="font-mono">{rescaffoldMode}</span>
               </span>
             </div>
@@ -370,13 +469,13 @@
             <ul class="space-y-1 text-xs">
               <li>
                 <span class="text-success">✨ 새로 {rescaffoldReport.dry_run ? "생성될" : "생성된"} 파일</span>:
-                <span class="text-white">{rescaffoldReport.created.length}개</span>
+                <span class="text-fg">{rescaffoldReport.created.length}개</span>
               </li>
               {#if rescaffoldReport.created.length > 0}
                 <li>
                   <details class="ml-4">
-                    <summary class="cursor-pointer text-muted hover:text-white">목록 보기</summary>
-                    <ul class="mt-1 font-mono text-muted space-y-0.5">
+                    <summary class="cursor-pointer text-fg-muted hover:text-fg">목록 보기</summary>
+                    <ul class="mt-1 font-mono text-fg-muted space-y-0.5">
                       {#each rescaffoldReport.created as p}
                         <li>{p}</li>
                       {/each}
@@ -385,10 +484,10 @@
                 </li>
               {/if}
               <li>
-                <span class={rescaffoldReport.overwritten.length > 0 ? "text-warning" : "text-muted"}>
+                <span class={rescaffoldReport.overwritten.length > 0 ? "text-warning" : "text-fg-muted"}>
                   ⚠️ {rescaffoldReport.dry_run ? "덮어쓸" : "덮어쓴"} 파일
                 </span>:
-                <span class="text-white">{rescaffoldReport.overwritten.length}개</span>
+                <span class="text-fg">{rescaffoldReport.overwritten.length}개</span>
                 {#if rescaffoldReport.modified_by_user.length > 0}
                   <span class="text-danger ml-1">
                     (사용자 수정분 {rescaffoldReport.modified_by_user.length}개 포함)
@@ -398,8 +497,8 @@
               {#if rescaffoldReport.overwritten.length > 0}
                 <li>
                   <details class="ml-4">
-                    <summary class="cursor-pointer text-muted hover:text-white">목록 보기</summary>
-                    <ul class="mt-1 font-mono text-muted space-y-0.5">
+                    <summary class="cursor-pointer text-fg-muted hover:text-fg">목록 보기</summary>
+                    <ul class="mt-1 font-mono text-fg-muted space-y-0.5">
                       {#each rescaffoldReport.overwritten as p}
                         <li class={rescaffoldReport.modified_by_user.includes(p) ? "text-danger" : ""}>
                           {rescaffoldReport.modified_by_user.includes(p) ? "⚠️ " : ""}{p}
@@ -410,8 +509,8 @@
                 </li>
               {/if}
               <li>
-                <span class="text-muted">변경 없음</span>:
-                <span class="text-white">{rescaffoldReport.unchanged}개</span>
+                <span class="text-fg-muted">변경 없음</span>:
+                <span class="text-fg">{rescaffoldReport.unchanged}개</span>
               </li>
             </ul>
           </div>

@@ -7,7 +7,7 @@ scope: vault
 ---
 # Home
 
-Co-Vault 마스터 인덱스.
+Jiphyeon 마스터 인덱스.
 
 ## 네비게이션
 - [[Projects]] — 프로젝트별 지식

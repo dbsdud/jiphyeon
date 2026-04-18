@@ -12,6 +12,27 @@ pub struct VaultEntry {
     pub name: String,
 }
 
+/// UI 밀도 모드. 전역 설정으로 앱 전체 간격/폰트를 제어한다.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Density {
+    #[default]
+    Regular,
+    Compact,
+}
+
+/// 사용자 테마 선호.
+/// - `Light`/`Dark`: 명시적 고정
+/// - `System`: OS 다크 모드 설정에 연동 (prefers-color-scheme)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ThemePreference {
+    Light,
+    Dark,
+    #[default]
+    System,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     /// 현재 활성 볼트 경로. `None`이면 볼트 미연결 상태.
@@ -25,6 +46,15 @@ pub struct AppConfig {
     pub editor_command: String,
     pub quick_note_folder: String,
     pub global_shortcut: String,
+    /// UI 밀도 (Regular/Compact). 구 config에 없으면 Regular.
+    #[serde(default)]
+    pub density: Density,
+    /// 테마 선호 (Light/Dark/System). 구 config에 없으면 System.
+    #[serde(default)]
+    pub theme: ThemePreference,
+    /// 사이드바 접힘 여부. 구 config에 없으면 false(펼침).
+    #[serde(default)]
+    pub sidebar_collapsed: bool,
 }
 
 impl Default for AppConfig {
@@ -43,6 +73,9 @@ impl Default for AppConfig {
             editor_command: "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code".to_string(),
             quick_note_folder: "inbox".to_string(),
             global_shortcut: "CmdOrCtrl+Shift+N".to_string(),
+            density: Density::Regular,
+            theme: ThemePreference::System,
+            sidebar_collapsed: false,
         }
     }
 }
@@ -89,6 +122,9 @@ pub struct AppConfigPatch {
     pub recent_notes_limit: Option<usize>,
     pub global_shortcut: Option<String>,
     pub quick_note_folder: Option<String>,
+    pub density: Option<Density>,
+    pub theme: Option<ThemePreference>,
+    pub sidebar_collapsed: Option<bool>,
 }
 
 impl AppConfig {
@@ -109,6 +145,15 @@ impl AppConfig {
         }
         if let Some(v) = patch.quick_note_folder {
             next.quick_note_folder = v;
+        }
+        if let Some(v) = patch.density {
+            next.density = v;
+        }
+        if let Some(v) = patch.theme {
+            next.theme = v;
+        }
+        if let Some(v) = patch.sidebar_collapsed {
+            next.sidebar_collapsed = v;
         }
         next
     }
@@ -280,5 +325,374 @@ mod tests {
         let next = base.merged_with(patch);
 
         assert_eq!(next.exclude_dirs, vec!["only".to_string()]);
+    }
+
+    // ─────────────────────────────────────────
+    // Slice 1.2 — Density (컴팩트/기본 밀도)
+    // ─────────────────────────────────────────
+
+    // BC #1-2: enum → JSON 소문자
+    #[test]
+    fn density_serializes_to_lowercase_string() {
+        assert_eq!(serde_json::to_string(&Density::Regular).unwrap(), "\"regular\"");
+        assert_eq!(serde_json::to_string(&Density::Compact).unwrap(), "\"compact\"");
+    }
+
+    // BC #3-4: JSON 소문자 → enum
+    #[test]
+    fn density_deserializes_from_lowercase_string() {
+        assert_eq!(
+            serde_json::from_str::<Density>("\"regular\"").unwrap(),
+            Density::Regular
+        );
+        assert_eq!(
+            serde_json::from_str::<Density>("\"compact\"").unwrap(),
+            Density::Compact
+        );
+    }
+
+    // BC: default → Regular
+    #[test]
+    fn density_default_is_regular() {
+        assert_eq!(Density::default(), Density::Regular);
+    }
+
+    // BC #8: AppConfig::default().density == Regular
+    #[test]
+    fn app_config_default_density_is_regular() {
+        assert_eq!(AppConfig::default().density, Density::Regular);
+    }
+
+    // BC #6: 구 config.json (density 필드 없음) → Regular로 로드
+    #[test]
+    fn load_config_missing_density_field_uses_default() {
+        let dir = TempDir::new().unwrap();
+        // density 필드 없는 기존 스키마
+        let legacy_json = r#"{
+            "vault_path": null,
+            "vaults": [],
+            "watch_debounce_ms": 500,
+            "recent_notes_limit": 20,
+            "exclude_dirs": [],
+            "editor_command": "code",
+            "quick_note_folder": "inbox",
+            "global_shortcut": "CmdOrCtrl+Shift+N"
+        }"#;
+        fs::write(config_path(dir.path()), legacy_json).unwrap();
+
+        let loaded = load_config(dir.path());
+        assert_eq!(loaded.density, Density::Regular);
+    }
+
+    // BC #7: Compact 저장 후 load roundtrip
+    #[test]
+    fn save_then_load_preserves_compact_density() {
+        let dir = TempDir::new().unwrap();
+        let cfg = AppConfig {
+            density: Density::Compact,
+            ..Default::default()
+        };
+
+        save_config(&cfg, dir.path()).unwrap();
+        let loaded = load_config(dir.path());
+
+        assert_eq!(loaded.density, Density::Compact);
+    }
+
+    // BC #9: Some(Compact) patch → Compact 전환
+    #[test]
+    fn merged_with_applies_some_density() {
+        let base = AppConfig::default();
+        let patch = AppConfigPatch {
+            density: Some(Density::Compact),
+            ..Default::default()
+        };
+        let next = base.merged_with(patch);
+
+        assert_eq!(next.density, Density::Compact);
+    }
+
+    // BC #10: None patch → 기존 density 유지
+    #[test]
+    fn merged_with_none_density_keeps_original() {
+        let base = AppConfig {
+            density: Density::Compact,
+            ..Default::default()
+        };
+        let next = base.merged_with(AppConfigPatch::default());
+
+        assert_eq!(next.density, Density::Compact);
+    }
+
+    // BC #11: Compact → Regular 전환
+    #[test]
+    fn merged_with_can_switch_compact_to_regular() {
+        let base = AppConfig {
+            density: Density::Compact,
+            ..Default::default()
+        };
+        let patch = AppConfigPatch {
+            density: Some(Density::Regular),
+            ..Default::default()
+        };
+        let next = base.merged_with(patch);
+
+        assert_eq!(next.density, Density::Regular);
+    }
+
+    // ─────────────────────────────────────────
+    // Slice 1.5 — ThemePreference (라이트/다크/시스템)
+    // spec: docs/specs/spec-theme-switcher.md
+    // ─────────────────────────────────────────
+
+    // BC #1-3: enum → JSON 소문자
+    #[test]
+    fn theme_pref_serializes_to_lowercase() {
+        assert_eq!(
+            serde_json::to_string(&ThemePreference::Light).unwrap(),
+            "\"light\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ThemePreference::Dark).unwrap(),
+            "\"dark\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ThemePreference::System).unwrap(),
+            "\"system\""
+        );
+    }
+
+    // BC #4: JSON 소문자 → enum
+    #[test]
+    fn theme_pref_deserializes_from_lowercase() {
+        assert_eq!(
+            serde_json::from_str::<ThemePreference>("\"light\"").unwrap(),
+            ThemePreference::Light
+        );
+        assert_eq!(
+            serde_json::from_str::<ThemePreference>("\"dark\"").unwrap(),
+            ThemePreference::Dark
+        );
+        assert_eq!(
+            serde_json::from_str::<ThemePreference>("\"system\"").unwrap(),
+            ThemePreference::System
+        );
+    }
+
+    // BC #5: 잘못된 문자열 거부
+    #[test]
+    fn theme_pref_rejects_invalid_string() {
+        assert!(serde_json::from_str::<ThemePreference>("\"invalid\"").is_err());
+        assert!(serde_json::from_str::<ThemePreference>("\"Light\"").is_err()); // 대문자 금지
+    }
+
+    // BC #6: default → System
+    #[test]
+    fn theme_pref_default_is_system() {
+        assert_eq!(ThemePreference::default(), ThemePreference::System);
+    }
+
+    // BC #9: AppConfig::default().theme == System
+    #[test]
+    fn app_config_default_theme_is_system() {
+        assert_eq!(AppConfig::default().theme, ThemePreference::System);
+    }
+
+    // BC #7: 구 config.json (theme 필드 없음) → System
+    #[test]
+    fn load_config_missing_theme_field_uses_default() {
+        let dir = TempDir::new().unwrap();
+        let legacy_json = r#"{
+            "vault_path": null,
+            "vaults": [],
+            "watch_debounce_ms": 500,
+            "recent_notes_limit": 20,
+            "exclude_dirs": [],
+            "editor_command": "code",
+            "quick_note_folder": "inbox",
+            "global_shortcut": "CmdOrCtrl+Shift+N",
+            "density": "regular"
+        }"#;
+        fs::write(config_path(dir.path()), legacy_json).unwrap();
+
+        let loaded = load_config(dir.path());
+        assert_eq!(loaded.theme, ThemePreference::System);
+    }
+
+    // BC #8: Light 저장 후 load roundtrip
+    #[test]
+    fn save_then_load_preserves_light_theme() {
+        let dir = TempDir::new().unwrap();
+        let cfg = AppConfig {
+            theme: ThemePreference::Light,
+            ..Default::default()
+        };
+
+        save_config(&cfg, dir.path()).unwrap();
+        let loaded = load_config(dir.path());
+
+        assert_eq!(loaded.theme, ThemePreference::Light);
+    }
+
+    // BC #8: Dark 저장 후 load roundtrip
+    #[test]
+    fn save_then_load_preserves_dark_theme() {
+        let dir = TempDir::new().unwrap();
+        let cfg = AppConfig {
+            theme: ThemePreference::Dark,
+            ..Default::default()
+        };
+
+        save_config(&cfg, dir.path()).unwrap();
+        let loaded = load_config(dir.path());
+
+        assert_eq!(loaded.theme, ThemePreference::Dark);
+    }
+
+    // BC #10: Some(theme) patch → 반영
+    #[test]
+    fn merged_with_applies_some_theme() {
+        let base = AppConfig::default(); // System
+        let patch = AppConfigPatch {
+            theme: Some(ThemePreference::Light),
+            ..Default::default()
+        };
+        let next = base.merged_with(patch);
+
+        assert_eq!(next.theme, ThemePreference::Light);
+    }
+
+    // BC #11: None patch → 기존 theme 유지
+    #[test]
+    fn merged_with_none_theme_keeps_original() {
+        let base = AppConfig {
+            theme: ThemePreference::Dark,
+            ..Default::default()
+        };
+        let next = base.merged_with(AppConfigPatch::default());
+
+        assert_eq!(next.theme, ThemePreference::Dark);
+    }
+
+    // BC #12: 전환 가능 — Light → System, Dark → Light 등
+    #[test]
+    fn merged_with_can_switch_any_theme() {
+        // Light → System
+        let light_base = AppConfig {
+            theme: ThemePreference::Light,
+            ..Default::default()
+        };
+        let to_system = light_base.merged_with(AppConfigPatch {
+            theme: Some(ThemePreference::System),
+            ..Default::default()
+        });
+        assert_eq!(to_system.theme, ThemePreference::System);
+
+        // Dark → Light
+        let dark_base = AppConfig {
+            theme: ThemePreference::Dark,
+            ..Default::default()
+        };
+        let to_light = dark_base.merged_with(AppConfigPatch {
+            theme: Some(ThemePreference::Light),
+            ..Default::default()
+        });
+        assert_eq!(to_light.theme, ThemePreference::Light);
+    }
+
+    // ─────────────────────────────────────────
+    // Slice 1.6 — sidebar_collapsed (사이드바 접기/펴기)
+    // spec: docs/specs/spec-sidebar-collapse.md
+    // ─────────────────────────────────────────
+
+    // BC #1: AppConfig::default().sidebar_collapsed == false
+    #[test]
+    fn app_config_default_sidebar_collapsed_is_false() {
+        assert!(!AppConfig::default().sidebar_collapsed);
+    }
+
+    // BC #2: 구 config.json (sidebar_collapsed 필드 없음) → false
+    #[test]
+    fn load_config_missing_sidebar_collapsed_field_uses_default() {
+        let dir = TempDir::new().unwrap();
+        let legacy_json = r#"{
+            "vault_path": null,
+            "vaults": [],
+            "watch_debounce_ms": 500,
+            "recent_notes_limit": 20,
+            "exclude_dirs": [],
+            "editor_command": "code",
+            "quick_note_folder": "inbox",
+            "global_shortcut": "CmdOrCtrl+Shift+N",
+            "density": "regular",
+            "theme": "system"
+        }"#;
+        fs::write(config_path(dir.path()), legacy_json).unwrap();
+
+        let loaded = load_config(dir.path());
+        assert!(!loaded.sidebar_collapsed);
+    }
+
+    // BC #3: true 저장 후 load roundtrip
+    #[test]
+    fn save_then_load_preserves_sidebar_collapsed_true() {
+        let dir = TempDir::new().unwrap();
+        let cfg = AppConfig {
+            sidebar_collapsed: true,
+            ..Default::default()
+        };
+
+        save_config(&cfg, dir.path()).unwrap();
+        let loaded = load_config(dir.path());
+
+        assert!(loaded.sidebar_collapsed);
+    }
+
+    // BC #4: Some(true) patch → 반영
+    #[test]
+    fn merged_with_applies_some_sidebar_collapsed() {
+        let base = AppConfig::default(); // false
+        let patch = AppConfigPatch {
+            sidebar_collapsed: Some(true),
+            ..Default::default()
+        };
+        let next = base.merged_with(patch);
+
+        assert!(next.sidebar_collapsed);
+    }
+
+    // BC #5: None patch → 기존 값 유지
+    #[test]
+    fn merged_with_none_sidebar_collapsed_keeps_original() {
+        let base = AppConfig {
+            sidebar_collapsed: true,
+            ..Default::default()
+        };
+        let next = base.merged_with(AppConfigPatch::default());
+
+        assert!(next.sidebar_collapsed);
+    }
+
+    // BC #6: 펼침 ↔ 접힘 토글 가능
+    #[test]
+    fn merged_with_can_toggle_sidebar_collapsed() {
+        // true → false
+        let collapsed_base = AppConfig {
+            sidebar_collapsed: true,
+            ..Default::default()
+        };
+        let to_expanded = collapsed_base.merged_with(AppConfigPatch {
+            sidebar_collapsed: Some(false),
+            ..Default::default()
+        });
+        assert!(!to_expanded.sidebar_collapsed);
+
+        // false → true
+        let expanded_base = AppConfig::default();
+        let to_collapsed = expanded_base.merged_with(AppConfigPatch {
+            sidebar_collapsed: Some(true),
+            ..Default::default()
+        });
+        assert!(to_collapsed.sidebar_collapsed);
     }
 }

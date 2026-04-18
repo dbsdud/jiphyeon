@@ -37,16 +37,16 @@
       <div class="flex items-start gap-3 mb-4">
         <div class="text-2xl">🌱</div>
         <div>
-          <h2 id="git-init-title" class="text-base font-semibold text-white mb-1">
+          <h2 id="git-init-title" class="text-base font-semibold text-fg mb-1">
             볼트가 생성되었습니다
           </h2>
-          <p class="text-sm text-muted">
+          <p class="text-sm text-fg-muted">
             Git으로 버전 관리를 시작하려면 터미널에서 아래 명령을 실행하세요.
           </p>
         </div>
       </div>
 
-      <div class="bg-surface-0 border border-border rounded-lg p-3 mb-4 font-mono text-xs text-white">
+      <div class="bg-surface-0 border border-border rounded-lg p-3 mb-4 font-mono text-xs text-fg">
         {#each commands as cmd}
           <div class="py-0.5">{cmd}</div>
         {/each}
@@ -54,13 +54,13 @@
 
       <div class="flex justify-end gap-2">
         <button
-          class="text-sm px-3 py-1.5 rounded border border-border text-muted hover:text-white hover:border-accent transition-colors"
+          class="text-sm px-3 py-1.5 rounded border border-border text-fg-muted hover:text-fg hover:border-accent transition-colors"
           onclick={copyCommands}
         >
           {copied ? "복사됨 ✓" : "명령 복사"}
         </button>
         <button
-          class="text-sm px-3 py-1.5 rounded bg-accent text-white hover:bg-accent/80 transition-colors"
+          class="text-sm px-3 py-1.5 rounded bg-accent text-accent-fg hover:bg-accent/80 transition-colors"
           onclick={onclose}
         >
           시작하기

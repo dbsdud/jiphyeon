@@ -2,6 +2,7 @@
   import { getNoteList, getTagList, getFolderTree, searchNotes, openInEditor } from "$lib/api";
   import type { NoteEntry, TagInfo, FolderNode, SearchResult } from "$lib/types";
   import FolderTree from "$lib/components/FolderTree.svelte";
+  import { vaultRefresh } from "$lib/stores/vault.svelte";
 
   let notes = $state<NoteEntry[]>([]);
   let searchResults = $state<SearchResult[]>([]);
@@ -48,7 +49,7 @@
   function highlightQuery(text: string, query: string): string {
     if (!query) return text;
     const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return text.replace(new RegExp(`(${escaped})`, "gi"), "<mark class='bg-accent/30 text-white rounded px-0.5'>$1</mark>");
+    return text.replace(new RegExp(`(${escaped})`, "gi"), "<mark class='bg-accent/30 text-fg rounded px-0.5'>$1</mark>");
   }
 
   function clearFilters() {
@@ -104,8 +105,11 @@
   const noteTypes = ["til", "decision", "reading", "meeting", "idea", "artifact", "clipping", "moc"];
   const statuses = ["seedling", "growing", "evergreen", "stale"];
 
-  loadSidebar();
-  loadNotes();
+  $effect(() => {
+    vaultRefresh.version; // 볼트 변경 시 자동 재로드
+    loadSidebar();
+    loadNotes();
+  });
 </script>
 
 <div class="flex h-full">
@@ -116,7 +120,7 @@
       <input
         type="text"
         placeholder="Search..."
-        class="w-full px-2 py-1.5 text-sm bg-surface-2 border border-border rounded text-white placeholder:text-muted focus:outline-none focus:border-accent"
+        class="w-full px-2 py-1.5 text-sm bg-surface-2 border border-border rounded text-fg placeholder:text-fg-muted focus:outline-none focus:border-accent"
         bind:value={searchQuery}
         onkeydown={(e) => { if (e.key === "Enter") onSearch(); }}
       />
@@ -124,17 +128,17 @@
 
     <!-- Folders -->
     <div class="mb-4">
-      <h4 class="text-xs font-medium text-muted mb-2 uppercase tracking-wider">Folders</h4>
+      <h4 class="text-xs font-medium text-fg-muted mb-2 uppercase tracking-wider">Folders</h4>
       <FolderTree nodes={folders} selectedPath={filterFolder} onSelect={selectFolder} />
     </div>
 
     <!-- Types -->
     <div class="mb-4">
-      <h4 class="text-xs font-medium text-muted mb-2 uppercase tracking-wider">Type</h4>
+      <h4 class="text-xs font-medium text-fg-muted mb-2 uppercase tracking-wider">Type</h4>
       {#each noteTypes as type}
         <button
           class="w-full text-left text-sm px-2 py-1 rounded transition-colors
-            {filterType === type ? 'bg-accent/20 text-accent' : 'text-neutral-300 hover:bg-surface-2'}"
+            {filterType === type ? 'bg-accent/20 text-accent' : 'text-fg hover:bg-surface-2'}"
           onclick={() => selectType(type)}
         >
           {typeLabel(type)}
@@ -144,11 +148,11 @@
 
     <!-- Status -->
     <div class="mb-4">
-      <h4 class="text-xs font-medium text-muted mb-2 uppercase tracking-wider">Status</h4>
+      <h4 class="text-xs font-medium text-fg-muted mb-2 uppercase tracking-wider">Status</h4>
       {#each statuses as status}
         <button
           class="w-full text-left text-sm px-2 py-1 rounded transition-colors
-            {filterStatus === status ? 'bg-accent/20 text-accent' : 'text-neutral-300 hover:bg-surface-2'}"
+            {filterStatus === status ? 'bg-accent/20 text-accent' : 'text-fg hover:bg-surface-2'}"
           onclick={() => selectStatus(status)}
         >
           {status}
@@ -158,12 +162,12 @@
 
     <!-- Tags -->
     <div class="mb-4">
-      <h4 class="text-xs font-medium text-muted mb-2 uppercase tracking-wider">Tags</h4>
+      <h4 class="text-xs font-medium text-fg-muted mb-2 uppercase tracking-wider">Tags</h4>
       <div class="flex flex-wrap gap-1">
         {#each tags.slice(0, 20) as tag}
           <button
             class="text-xs px-1.5 py-0.5 rounded-full transition-colors
-              {filterTag === tag.name ? 'bg-accent text-white' : 'bg-surface-3 text-neutral-300 hover:bg-surface-2'}"
+              {filterTag === tag.name ? 'bg-accent text-accent-fg' : 'bg-surface-3 text-fg hover:bg-surface-2'}"
             onclick={() => selectTag(tag.name)}
           >
             {tag.name}
@@ -174,7 +178,7 @@
 
     {#if filterFolder || filterType || filterStatus || filterTag}
       <button
-        class="w-full text-xs text-muted hover:text-white py-1"
+        class="w-full text-xs text-fg-muted hover:text-fg py-1"
         onclick={clearFilters}
       >
         Clear filters
@@ -189,11 +193,11 @@
         <h2 class="text-lg font-semibold">
           {isSearchMode ? "Search Results" : "Notes"}
           {#if !loading}
-            <span class="text-sm text-muted font-normal">({isSearchMode ? searchResults.length : notes.length})</span>
+            <span class="text-sm text-fg-muted font-normal">({isSearchMode ? searchResults.length : notes.length})</span>
           {/if}
         </h2>
         <select
-          class="text-sm bg-surface-2 border border-border rounded px-2 py-1 text-neutral-300"
+          class="text-sm bg-surface-2 border border-border rounded px-2 py-1 text-fg"
           bind:value={sortBy}
           onchange={() => loadNotes()}
         >
@@ -204,10 +208,10 @@
       </div>
 
       {#if loading}
-        <p class="text-sm text-muted">Loading...</p>
+        <p class="text-sm text-fg-muted">Loading...</p>
       {:else if isSearchMode}
         {#if searchResults.length === 0}
-          <p class="text-sm text-muted">No results found.</p>
+          <p class="text-sm text-fg-muted">No results found.</p>
         {:else}
           <div class="space-y-1">
             {#each searchResults as result}
@@ -219,19 +223,19 @@
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2">
                       <span class="text-sm truncate">{result.title}</span>
-                      <span class="text-[10px] px-1 py-0.5 rounded bg-surface-3 text-muted shrink-0">{result.match_field}</span>
+                      <span class="text-[10px] px-1 py-0.5 rounded bg-surface-3 text-fg-muted shrink-0">{result.match_field}</span>
                       {#if result.frontmatter}
-                        <span class="text-xs px-1.5 py-0.5 rounded bg-surface-2 text-muted shrink-0">
+                        <span class="text-xs px-1.5 py-0.5 rounded bg-surface-2 text-fg-muted shrink-0">
                           {typeLabel(result.frontmatter.note_type)}
                         </span>
                       {/if}
                     </div>
-                    <div class="text-xs text-muted mt-0.5 truncate">{result.path}</div>
+                    <div class="text-xs text-fg-muted mt-0.5 truncate">{result.path}</div>
                   </div>
                   <div class="flex items-center gap-2 shrink-0 ml-3">
-                    <span class="text-xs text-muted">{formatDate(result.modified_at)}</span>
+                    <span class="text-xs text-fg-muted">{formatDate(result.modified_at)}</span>
                     <button
-                      class="text-muted hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity"
+                      class="text-fg-muted hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity"
                       title="Open in Editor"
                       onclick={(e) => { e.preventDefault(); e.stopPropagation(); openInEditor(result.path); }}
                     >
@@ -243,14 +247,14 @@
                   </div>
                 </div>
                 {#if result.snippet}
-                  <p class="text-xs text-muted mt-1 line-clamp-2">{@html highlightQuery(result.snippet, searchQuery)}</p>
+                  <p class="text-xs text-fg-muted mt-1 line-clamp-2">{@html highlightQuery(result.snippet, searchQuery)}</p>
                 {/if}
               </a>
             {/each}
           </div>
         {/if}
       {:else if notes.length === 0}
-        <p class="text-sm text-muted">No notes found.</p>
+        <p class="text-sm text-fg-muted">No notes found.</p>
       {:else}
         <div class="space-y-1">
           {#each notes as note}
@@ -262,20 +266,20 @@
                 <div class="flex items-center gap-2">
                   <span class="text-sm truncate">{note.title}</span>
                   {#if note.frontmatter}
-                    <span class="text-xs px-1.5 py-0.5 rounded bg-surface-2 text-muted shrink-0">
+                    <span class="text-xs px-1.5 py-0.5 rounded bg-surface-2 text-fg-muted shrink-0">
                       {typeLabel(note.frontmatter.note_type)}
                     </span>
                     {#if note.frontmatter.status}
-                      <span class="text-xs text-muted shrink-0">{note.frontmatter.status}</span>
+                      <span class="text-xs text-fg-muted shrink-0">{note.frontmatter.status}</span>
                     {/if}
                   {/if}
                 </div>
-                <div class="text-xs text-muted mt-0.5 truncate">{note.path}</div>
+                <div class="text-xs text-fg-muted mt-0.5 truncate">{note.path}</div>
               </div>
               <div class="flex items-center gap-2 shrink-0 ml-3">
-                <span class="text-xs text-muted">{formatDate(note.modified_at)}</span>
+                <span class="text-xs text-fg-muted">{formatDate(note.modified_at)}</span>
                 <button
-                  class="text-muted hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity"
+                  class="text-fg-muted hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity"
                   title="Open in Editor"
                   onclick={(e) => { e.preventDefault(); e.stopPropagation(); openInEditor(note.path); }}
                 >

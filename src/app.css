@@ -1,23 +1,389 @@
 @import "tailwindcss";
+/* Slice 1.5 — 마크다운 본문 스타일.
+   @tailwindcss/typography가 `--tw-prose-*` CSS 변수 기반이라 런타임 테마 전환과 호환된다.
+   github-markdown-css는 하드코딩된 hex 71개 + CSS 변수 0개 구조로 다크/라이트 파일 공존이 불가능해 제거.
+   spec: docs/specs/spec-theme-switcher.md */
+@plugin "@tailwindcss/typography";
 
 @theme {
-  --color-surface: #0a0a0a;
-  --color-surface-1: #141414;
-  --color-surface-2: #1e1e1e;
-  --color-surface-3: #282828;
-  --color-border: #333333;
-  --color-muted: #888888;
+  /* ─────────────────────────────
+     Color — 기본값(Tailwind 유틸 생성용 fallback).
+     실제 값은 [data-theme] 블록에서 오버라이드된다.
+     ───────────────────────────── */
+  --color-surface-0: #0e0e0e;
+  --color-surface-1: #171717;
+  --color-surface-2: #1f1f1f;
+  --color-surface-3: #2a2a2a;
+
+  --color-fg: #f5f5f5;
+  --color-fg-muted: #8a8a8a;
+  --color-fg-dim: #555555;
+
+  --color-border: #2e2e2e;
+  --color-border-strong: #3f3f3f;
+
   --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
   --color-accent-dim: #1e3a5f;
+  /* accent 배경 위의 텍스트 — 양쪽 테마에서 동일한 흰색(AA 확보) */
+  --color-accent-fg: #ffffff;
+
   --color-success: #22c55e;
   --color-warning: #eab308;
   --color-danger: #ef4444;
+  --color-info: #06b6d4;
+
+  /* Legacy aliases — 마이그레이션 완료 후 제거 (Slice 1.1 말미) */
+  --color-surface: var(--color-surface-0);
+  --color-muted: var(--color-fg-muted);
+
+  /* ─────────────────────────────
+     Typography
+     ───────────────────────────── */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, "Cascadia Code", monospace;
+
+  --text-xs: 11px;
+  --text-xs--line-height: 1.4;
+  --text-sm: 12px;
+  --text-sm--line-height: 1.4;
+  --text-base: 13px;
+  --text-base--line-height: 1.5;
+  --text-md: 14px;
+  --text-md--line-height: 1.5;
+  --text-lg: 16px;
+  --text-lg--line-height: 1.6;
+  --text-xl: 18px;
+  --text-xl--line-height: 1.5;
+  --text-2xl: 22px;
+  --text-2xl--line-height: 1.4;
+  --text-3xl: 28px;
+  --text-3xl--line-height: 1.3;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* ─────────────────────────────
+     Spacing — base unit (Slice 1.2 컴팩트 모드 진입점)
+     ───────────────────────────── */
+  --spacing: 4px;
+
+  /* ─────────────────────────────
+     Radius
+     ───────────────────────────── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 9999px;
+
+  /* ─────────────────────────────
+     Shadow
+     ───────────────────────────── */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
-html, body {
+/* ─────────────────────────────
+   Theme — Dark palette (Slice 1.5, Slice 1.1 값 유지)
+   spec: docs/specs/spec-theme-switcher.md
+   ───────────────────────────── */
+[data-theme="dark"] {
+  --color-surface-0: #0e0e0e;
+  --color-surface-1: #171717;
+  --color-surface-2: #1f1f1f;
+  --color-surface-3: #2a2a2a;
+
+  --color-fg: #f5f5f5;
+  --color-fg-muted: #8a8a8a;
+  --color-fg-dim: #555555;
+
+  --color-border: #2e2e2e;
+  --color-border-strong: #3f3f3f;
+
+  --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
+  --color-accent-dim: #1e3a5f;
+  --color-accent-fg: #ffffff;
+
+  --color-success: #22c55e;
+  --color-warning: #eab308;
+  --color-danger: #ef4444;
+  --color-info: #06b6d4;
+
+  --color-surface: var(--color-surface-0);
+  --color-muted: var(--color-fg-muted);
+}
+
+/* ─────────────────────────────
+   Theme — Light palette (Slice 1.5)
+   디자인 테제: "햇살 들어오는 도서관" — 웜오프화이트 기반, 순백 회피.
+   모든 수치 WCAG AA 검증 완료.
+   ───────────────────────────── */
+[data-theme="light"] {
+  --color-surface-0: #fafaf7;
+  --color-surface-1: #f3f2ed;
+  --color-surface-2: #e8e6df;
+  --color-surface-3: #d9d7ce;
+
+  --color-fg: #1c1c1c;
+  --color-fg-muted: #6b6b6b;
+  --color-fg-dim: #9a9a9a;
+
+  --color-border: #e2e0d7;
+  --color-border-strong: #b8b5a9;
+
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-dim: #dbeafe;
+  --color-accent-fg: #ffffff;
+
+  --color-success: #15803d;
+  --color-warning: #a16207;
+  --color-danger: #b91c1c;
+  --color-info: #0e7490;
+
+  --color-surface: var(--color-surface-0);
+  --color-muted: var(--color-fg-muted);
+}
+
+/* 브라우저 UI (스크롤바, form 컨트롤) 테마 힌트.
+   .markdown-body의 github-markdown CSS 변수는 app.css 하단 `.markdown-body` 블록에서
+   디자인 토큰으로 이미 오버라이드되어 양쪽 파일의 고정 색상과 무관하게 데이터-테마를 따른다. */
+html[data-theme="dark"] { color-scheme: dark; }
+html[data-theme="light"] { color-scheme: light; }
+
+/* ─────────────────────────────
+   Sidebar — Collapse/Expand (Slice 1.6)
+   html[data-sidebar="collapsed"]에서 사이드바 축소(w-52 → w-12).
+   라벨/볼트 이름/그룹 타이틀/버전 숨김. 아이콘만 남긴다.
+   spec: docs/specs/spec-sidebar-collapse.md
+   ───────────────────────────── */
+.sidebar-root {
+  transition: width 150ms ease;
+}
+[data-sidebar="collapsed"] .sidebar-root {
+  width: 3rem; /* 48px = w-12 */
+}
+[data-sidebar="collapsed"] .sidebar-label,
+[data-sidebar="collapsed"] .sidebar-vault-name,
+[data-sidebar="collapsed"] .sidebar-group-title,
+[data-sidebar="collapsed"] .sidebar-version,
+[data-sidebar="collapsed"] .sidebar-logo,
+[data-sidebar="collapsed"] .sidebar-vault-add,
+[data-sidebar="collapsed"] .sidebar-vault-remove {
+  display: none;
+}
+/* collapsed에서 메뉴 아이템/볼트 행의 아이콘만 중앙 정렬 */
+[data-sidebar="collapsed"] .sidebar-item {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+[data-sidebar="collapsed"] .sidebar-vault-row {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+/* 볼트 행 내부 버튼은 기본적으로 flex-1 + text-left로 넓게 퍼지는데,
+   collapsed에선 ●만 남으므로 내부 컨텐츠도 중앙 정렬한다. */
+[data-sidebar="collapsed"] .sidebar-vault-row > button {
+  justify-content: center;
+}
+[data-sidebar="collapsed"] .sidebar-group-header {
+  padding-left: 0;
+  padding-right: 0;
+  justify-content: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-root {
+    transition: none;
+  }
+}
+
+/* ─────────────────────────────
+   Density — Compact mode overrides (Slice 1.2)
+   html[data-density="compact"]에서 spacing과 text-* 변수만 축소.
+   색상/radius/shadow/font-family/font-weight/line-height는 불변.
+   ───────────────────────────── */
+[data-density="compact"] {
+  --spacing: 3px;
+
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 12px;
+  --text-md: 13px;
+  --text-lg: 14px;
+  --text-xl: 16px;
+  --text-2xl: 19px;
+  --text-3xl: 24px;
+}
+
+html,
+body {
   height: 100%;
   margin: 0;
-  background: var(--color-surface);
-  color: #e5e5e5;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background: var(--color-surface-0);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+}
+
+/* ─────────────────────────────
+   Markdown 본문 — Slice 1.3a → Slice 1.5 재편
+   spec: docs/specs/spec-github-markdown.md + docs/specs/spec-theme-switcher.md
+
+   `.prose`(@tailwindcss/typography)가 타이포그래피/간격/테이블/리스트를 담당.
+   `.prose`의 --tw-prose-* 변수를 우리 디자인 토큰에 매핑하여 [data-theme] 전환과 연동.
+   `.markdown-body`는 우리 앱 고유 규칙(wikilink, diagram, Prism 토큰, KaTeX)만 담당한다.
+   ───────────────────────────── */
+.prose {
+  --tw-prose-body: var(--color-fg);
+  --tw-prose-headings: var(--color-fg);
+  --tw-prose-lead: var(--color-fg-muted);
+  --tw-prose-links: var(--color-accent);
+  --tw-prose-bold: var(--color-fg);
+  --tw-prose-counters: var(--color-fg-muted);
+  --tw-prose-bullets: var(--color-fg-dim);
+  --tw-prose-hr: var(--color-border);
+  --tw-prose-quotes: var(--color-fg-muted);
+  --tw-prose-quote-borders: var(--color-border-strong);
+  --tw-prose-captions: var(--color-fg-muted);
+  --tw-prose-code: var(--color-fg);
+  --tw-prose-pre-code: var(--color-fg);
+  --tw-prose-pre-bg: var(--color-surface-2);
+  --tw-prose-th-borders: var(--color-border-strong);
+  --tw-prose-td-borders: var(--color-border);
+
+  /* Invert(다크 모드) 변수도 동일 토큰으로 묶어 둔다 — prose-invert 클래스가 적용되어도 일관. */
+  --tw-prose-invert-body: var(--color-fg);
+  --tw-prose-invert-headings: var(--color-fg);
+  --tw-prose-invert-lead: var(--color-fg-muted);
+  --tw-prose-invert-links: var(--color-accent);
+  --tw-prose-invert-bold: var(--color-fg);
+  --tw-prose-invert-counters: var(--color-fg-muted);
+  --tw-prose-invert-bullets: var(--color-fg-dim);
+  --tw-prose-invert-hr: var(--color-border);
+  --tw-prose-invert-quotes: var(--color-fg-muted);
+  --tw-prose-invert-quote-borders: var(--color-border-strong);
+  --tw-prose-invert-captions: var(--color-fg-muted);
+  --tw-prose-invert-code: var(--color-fg);
+  --tw-prose-invert-pre-code: var(--color-fg);
+  --tw-prose-invert-pre-bg: var(--color-surface-2);
+  --tw-prose-invert-th-borders: var(--color-border-strong);
+  --tw-prose-invert-td-borders: var(--color-border);
+}
+
+.markdown-body {
+  background: transparent;
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+}
+
+.markdown-body pre {
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+}
+
+.markdown-body code,
+.markdown-body pre {
+  font-family: var(--font-mono);
+}
+
+.markdown-body a.wikilink {
+  color: var(--color-accent);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--color-accent-dim);
+}
+.markdown-body a.wikilink:hover {
+  border-bottom-style: solid;
+}
+
+/* Prism 토큰 — 디자인 토큰 기반, 별도 Prism 테마 CSS는 사용하지 않음 */
+.markdown-body pre code .token.comment,
+.markdown-body pre code .token.prolog,
+.markdown-body pre code .token.doctype,
+.markdown-body pre code .token.cdata {
+  color: var(--color-fg-muted);
+  font-style: italic;
+}
+.markdown-body pre code .token.keyword,
+.markdown-body pre code .token.tag,
+.markdown-body pre code .token.selector,
+.markdown-body pre code .token.important,
+.markdown-body pre code .token.atrule {
+  color: var(--color-accent);
+}
+.markdown-body pre code .token.string,
+.markdown-body pre code .token.attr-value,
+.markdown-body pre code .token.char,
+.markdown-body pre code .token.regex {
+  color: var(--color-success);
+}
+.markdown-body pre code .token.number,
+.markdown-body pre code .token.boolean,
+.markdown-body pre code .token.constant,
+.markdown-body pre code .token.symbol {
+  color: var(--color-warning);
+}
+.markdown-body pre code .token.function,
+.markdown-body pre code .token.class-name,
+.markdown-body pre code .token.builtin {
+  color: var(--color-info);
+}
+.markdown-body pre code .token.punctuation,
+.markdown-body pre code .token.operator {
+  color: var(--color-fg-muted);
+}
+.markdown-body pre code .token.property,
+.markdown-body pre code .token.attr-name,
+.markdown-body pre code .token.variable {
+  color: var(--color-fg);
+}
+.markdown-body pre code .token.deleted {
+  color: var(--color-danger);
+}
+.markdown-body pre code .token.inserted {
+  color: var(--color-success);
+}
+
+/* ─────────────────────────────
+   Slice 1.3b — 수식/다이어그램
+   spec: docs/specs/spec-diagrams.md
+   ───────────────────────────── */
+.markdown-body .diagram {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: calc(var(--spacing) * 3);
+  margin: calc(var(--spacing) * 3) 0;
+  overflow-x: auto;
+}
+.markdown-body .diagram svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+.markdown-body .diagram-error {
+  color: var(--color-danger);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+  border-radius: var(--radius-sm);
+  padding: calc(var(--spacing) * 2);
+  margin: calc(var(--spacing) * 2) 0;
+}
+.markdown-body .katex-display {
+  margin: calc(var(--spacing) * 4) 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.markdown-body .katex-error {
+  color: var(--color-danger);
 }

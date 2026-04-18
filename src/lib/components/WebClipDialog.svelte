@@ -61,24 +61,24 @@
 
       <div class="space-y-3">
         <div>
-          <label for="clip-url" class="text-xs text-muted block mb-1">URL</label>
+          <label for="clip-url" class="text-xs text-fg-muted block mb-1">URL</label>
           <input
             id="clip-url"
             type="url"
             placeholder="https://..."
-            class="w-full px-3 py-2 text-sm bg-surface-2 border border-border rounded-lg text-white placeholder:text-muted focus:outline-none focus:border-accent"
+            class="w-full px-3 py-2 text-sm bg-surface-2 border border-border rounded-lg text-fg placeholder:text-fg-muted focus:outline-none focus:border-accent"
             bind:value={url}
             onkeydown={(e) => { if (e.key === "Enter" && !loading) handleClip(); }}
           />
         </div>
 
         <div>
-          <label for="clip-tags" class="text-xs text-muted block mb-1">Tags (comma separated)</label>
+          <label for="clip-tags" class="text-xs text-fg-muted block mb-1">Tags (comma separated)</label>
           <input
             id="clip-tags"
             type="text"
             placeholder="rust, web, ..."
-            class="w-full px-3 py-2 text-sm bg-surface-2 border border-border rounded-lg text-white placeholder:text-muted focus:outline-none focus:border-accent"
+            class="w-full px-3 py-2 text-sm bg-surface-2 border border-border rounded-lg text-fg placeholder:text-fg-muted focus:outline-none focus:border-accent"
             bind:value={tagsInput}
           />
         </div>
@@ -89,14 +89,14 @@
 
         <div class="flex justify-end gap-2 pt-1">
           <button
-            class="text-xs px-3 py-1.5 rounded-lg text-muted hover:text-white transition-colors"
+            class="text-xs px-3 py-1.5 rounded-lg text-fg-muted hover:text-fg transition-colors"
             onclick={onclose}
             disabled={loading}
           >
             Cancel
           </button>
           <button
-            class="text-xs px-4 py-1.5 rounded-lg bg-accent text-white hover:bg-accent/80 transition-colors disabled:opacity-50"
+            class="text-xs px-4 py-1.5 rounded-lg bg-accent text-accent-fg hover:bg-accent/80 transition-colors disabled:opacity-50"
             onclick={handleClip}
             disabled={loading || !url.trim()}
           >

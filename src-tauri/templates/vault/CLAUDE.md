@@ -1,4 +1,4 @@
-# Co-Vault
+# Jiphyeon
 
 마크다운 기반 개인 지식 관리 볼트. Claude Code가 노트 생성/관리를 자동화한다.
 

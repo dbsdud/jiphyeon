@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    co_vault_dashboard_lib::run()
+    jiphyeon_lib::run()
 }

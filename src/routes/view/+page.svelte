@@ -1,11 +1,14 @@
 <script lang="ts">
   import { page } from "$app/state";
+  import { tick } from "svelte";
   import { getNote, openInEditor } from "$lib/api";
   import type { RenderedNote } from "$lib/types";
+  import { themeRefresh } from "$lib/stores/theme.svelte";
 
   let note = $state<RenderedNote | null>(null);
   let error = $state("");
   let loading = $state(true);
+  let articleEl = $state<HTMLElement | null>(null);
 
   let notePath = $derived(page.url.searchParams.get("path") ?? "");
 
@@ -26,8 +29,36 @@
     }
   }
 
+  async function applyMarkdownPipeline() {
+    await tick();
+    if (!articleEl) return;
+    const { renderMarkdownPipeline } = await import("$lib/markdown/pipeline");
+    await renderMarkdownPipeline(articleEl);
+  }
+
   $effect(() => {
     load(notePath);
+  });
+
+  $effect(() => {
+    if (note) {
+      applyMarkdownPipeline();
+    }
+  });
+
+  // 테마 변경 시 현재 노트를 원본 HTML로 되돌리고 파이프라인 재실행.
+  // Mermaid는 `<pre>`를 `<div class="diagram">`으로 치환하므로 단순 마커 리셋만으로는
+  // 재렌더가 불가능 — 원본 HTML 재삽입이 가장 간단.
+  let themeRefreshInitialized = false;
+  $effect(() => {
+    themeRefresh.version;
+    if (!themeRefreshInitialized) {
+      themeRefreshInitialized = true;
+      return;
+    }
+    if (!note || !articleEl) return;
+    articleEl.innerHTML = note.html;
+    applyMarkdownPipeline();
   });
 
   function handleOpenEditor() {
@@ -45,7 +76,7 @@
 
 <div class="p-6 max-w-3xl mx-auto">
   {#if loading}
-    <p class="text-sm text-muted">Loading...</p>
+    <p class="text-sm text-fg-muted">Loading...</p>
   {:else if error}
     <div class="bg-danger/10 border border-danger/30 rounded-lg p-4 text-danger text-sm">
       {error}
@@ -56,7 +87,7 @@
       <div class="flex items-center justify-between mb-2">
         <h1 class="text-2xl font-bold">{note.title}</h1>
         <button
-          class="text-xs px-3 py-1.5 rounded bg-surface-2 border border-border text-muted hover:text-white hover:border-accent transition-colors"
+          class="text-xs px-3 py-1.5 rounded bg-surface-2 border border-border text-fg-muted hover:text-fg hover:border-accent transition-colors"
           onclick={handleOpenEditor}
         >
           Open in Editor
@@ -65,7 +96,7 @@
 
       <!-- Metadata -->
       {#if note.frontmatter}
-        <div class="flex items-center gap-3 text-sm text-muted">
+        <div class="flex items-center gap-3 text-sm text-fg-muted">
           <span class="px-2 py-0.5 rounded bg-surface-2">{typeLabel(note.frontmatter.note_type)}</span>
           {#if note.frontmatter.status}
             <span>{note.frontmatter.status}</span>
@@ -81,18 +112,18 @@
           {/each}
         </div>
       {/if}
-      <div class="text-xs text-muted mt-1">{note.path}</div>
+      <div class="text-xs text-fg-muted mt-1">{note.path}</div>
     </div>
 
     <!-- Content -->
-    <article class="prose prose-invert prose-sm max-w-none mb-8">
+    <article class="markdown-body prose prose-sm max-w-none mb-8" bind:this={articleEl}>
       {@html note.html}
     </article>
 
     <!-- Outgoing Links -->
     {#if note.outgoing_links.length > 0}
       <div class="border-t border-border pt-4 mb-4">
-        <h3 class="text-sm font-medium text-muted mb-2">Outgoing Links ({note.outgoing_links.length})</h3>
+        <h3 class="text-sm font-medium text-fg-muted mb-2">Outgoing Links ({note.outgoing_links.length})</h3>
         <div class="flex flex-wrap gap-1.5">
           {#each note.outgoing_links as link}
             <a
@@ -109,7 +140,7 @@
     <!-- Backlinks -->
     {#if note.backlinks.length > 0}
       <div class="border-t border-border pt-4">
-        <h3 class="text-sm font-medium text-muted mb-2">Backlinks ({note.backlinks.length})</h3>
+        <h3 class="text-sm font-medium text-fg-muted mb-2">Backlinks ({note.backlinks.length})</h3>
         <div class="space-y-1">
           {#each note.backlinks as bl}
             <a
@@ -118,9 +149,9 @@
             >
               <span class="text-sm text-accent">{bl.title}</span>
               {#if bl.note_type}
-                <span class="text-xs text-muted">{typeLabel(bl.note_type)}</span>
+                <span class="text-xs text-fg-muted">{typeLabel(bl.note_type)}</span>
               {/if}
-              <span class="text-xs text-muted truncate">{bl.context}</span>
+              <span class="text-xs text-fg-muted truncate">{bl.context}</span>
             </a>
           {/each}
         </div>
@@ -129,43 +160,3 @@
   {/if}
 </div>
 
-<style>
-  :global(article.prose a.wikilink) {
-    color: var(--color-accent);
-    text-decoration: none;
-    border-bottom: 1px dashed var(--color-accent-dim);
-  }
-  :global(article.prose a.wikilink:hover) {
-    border-bottom-style: solid;
-  }
-  :global(article.prose h1) { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 0.75rem; }
-  :global(article.prose h2) { font-size: 1.25rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
-  :global(article.prose h3) { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 0.5rem; }
-  :global(article.prose p) { margin: 0.5rem 0; line-height: 1.7; }
-  :global(article.prose ul) { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
-  :global(article.prose ol) { list-style: decimal; padding-left: 1.5rem; margin: 0.5rem 0; }
-  :global(article.prose li) { margin: 0.25rem 0; }
-  :global(article.prose code) {
-    background: var(--color-surface-2);
-    padding: 0.15rem 0.35rem;
-    border-radius: 0.25rem;
-    font-size: 0.85em;
-  }
-  :global(article.prose pre) {
-    background: var(--color-surface-2);
-    padding: 1rem;
-    border-radius: 0.5rem;
-    overflow-x: auto;
-    margin: 0.75rem 0;
-  }
-  :global(article.prose pre code) {
-    background: none;
-    padding: 0;
-  }
-  :global(article.prose blockquote) {
-    border-left: 3px solid var(--color-border);
-    padding-left: 1rem;
-    color: var(--color-muted);
-    margin: 0.75rem 0;
-  }
-</style>

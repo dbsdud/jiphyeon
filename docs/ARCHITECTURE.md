@@ -1,4 +1,4 @@
-# Co-Vault Dashboard — 아키텍처
+# Jiphyeon — 아키텍처
 
 ## 시스템 구조도
 
@@ -565,15 +565,15 @@ export const uiStore = new UiStore();
 
 ```json
 {
-  "productName": "Co-Vault Dashboard",
-  "identifier": "com.covault.dashboard",
+  "productName": "Jiphyeon",
+  "identifier": "com.jiphyeon.app",
   "build": {
     "frontendDist": "../dist"
   },
   "app": {
     "windows": [
       {
-        "title": "Co-Vault Dashboard",
+        "title": "Jiphyeon",
         "width": 1280,
         "height": 800,
         "minWidth": 900,

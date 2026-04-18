@@ -1,0 +1,98 @@
+/**
+ * Slice 1.3b — Mermaid 다이어그램 렌더.
+ * spec: docs/specs/spec-diagrams.md
+ *
+ * `html[data-theme]` 속성을 읽어 `default`(light) 또는 `dark` 테마로 초기화한다.
+ */
+import type { StageReport } from "./types";
+
+const SELECTOR = "pre > code.language-mermaid";
+const MARKER = "mermaidRendered";
+
+function currentTheme(): "default" | "dark" {
+  if (typeof document === "undefined") return "default";
+  return document.documentElement.dataset.theme === "dark" ? "dark" : "default";
+}
+
+export async function renderMermaid(root: HTMLElement): Promise<StageReport> {
+  const codes = root.querySelectorAll<HTMLElement>(SELECTOR);
+  if (codes.length === 0) return { succeeded: 0, failed: 0, skipped: true };
+
+  const targets = Array.from(codes).filter((el) => {
+    const pre = el.parentElement;
+    return pre?.tagName === "PRE" && pre.dataset[MARKER] !== "true";
+  });
+  if (targets.length === 0) return { succeeded: 0, failed: 0, skipped: true };
+
+  const { default: mermaid } = await import("mermaid");
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: currentTheme(),
+    securityLevel: "loose",
+    fontFamily: "var(--font-mono)",
+  });
+
+  let succeeded = 0;
+  let failed = 0;
+
+  for (let i = 0; i < targets.length; i++) {
+    const codeEl = targets[i];
+    const pre = codeEl.parentElement;
+    if (!pre) continue;
+
+    const source = codeEl.textContent ?? "";
+    const id = `mermaid-${Date.now()}-${i}`;
+
+    // render() 전에 parse()로 문법 검증.
+    // parse가 실패하면 render() 내부의 임시 에러 SVG가
+    // document.body에 남는 11.x 버그를 우회할 수 있다.
+    let parseError: unknown = null;
+    try {
+      const ok = await mermaid.parse(source, { suppressErrors: true });
+      if (ok === false) parseError = new Error("mermaid parse failed");
+    } catch (err) {
+      parseError = err;
+    }
+
+    if (parseError) {
+      console.warn("[renderMermaid] parse", parseError);
+      const overlay = document.createElement("div");
+      overlay.className = "diagram-error";
+      overlay.title =
+        parseError instanceof Error ? parseError.message : String(parseError);
+      overlay.textContent = "Failed to render Mermaid diagram";
+      pre.after(overlay);
+      pre.dataset[MARKER] = "true";
+      failed += 1;
+      continue;
+    }
+
+    try {
+      const { svg } = await mermaid.render(id, source);
+      if (!svg || svg.trim().length === 0) {
+        throw new Error("mermaid render returned empty svg");
+      }
+      const container = document.createElement("div");
+      container.className = "diagram diagram-mermaid";
+      container.innerHTML = svg;
+      container.dataset[MARKER] = "true";
+      pre.replaceWith(container);
+      succeeded += 1;
+    } catch (err) {
+      console.warn("[renderMermaid] render", err);
+      const overlay = document.createElement("div");
+      overlay.className = "diagram-error";
+      overlay.title = err instanceof Error ? err.message : String(err);
+      overlay.textContent = "Failed to render Mermaid diagram";
+      pre.after(overlay);
+      pre.dataset[MARKER] = "true";
+      failed += 1;
+      // 에러 경로에서만 mermaid의 임시 body 컨테이너/폭탄 SVG 잔재 청소.
+      // (성공 시에는 입력 id가 반환 SVG의 루트 id와 동일해서 지우면 안 됨.)
+      document.getElementById(`d${id}`)?.remove();
+      document.getElementById(id)?.remove();
+    }
+  }
+
+  return { succeeded, failed, skipped: false };
+}

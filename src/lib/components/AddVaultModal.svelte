@@ -95,11 +95,11 @@
   >
     <div class="bg-surface-1 border border-border rounded-xl p-6 max-w-md w-full">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-base font-semibold text-white">
+        <h2 class="text-base font-semibold text-fg">
           {step === "choose" ? "볼트 추가" : "새 볼트 이름"}
         </h2>
         <button
-          class="text-muted hover:text-white"
+          class="text-fg-muted hover:text-fg"
           onclick={resetAndClose}
           disabled={busy}
           aria-label="닫기"
@@ -119,8 +119,8 @@
           >
             <span class="text-xl">✨</span>
             <div>
-              <div class="text-sm font-medium text-white">새 볼트 생성</div>
-              <div class="text-xs text-muted mt-1">
+              <div class="text-sm font-medium text-fg">새 볼트 생성</div>
+              <div class="text-xs text-fg-muted mt-1">
                 부모 폴더와 이름을 정해 기본 구조로 초기화합니다.
               </div>
             </div>
@@ -135,22 +135,22 @@
           >
             <span class="text-xl">📂</span>
             <div>
-              <div class="text-sm font-medium text-white">기존 볼트 연결</div>
-              <div class="text-xs text-muted mt-1">
+              <div class="text-sm font-medium text-fg">기존 볼트 연결</div>
+              <div class="text-xs text-fg-muted mt-1">
                 이미 존재하는 볼트 디렉토리를 선택하여 등록합니다.
               </div>
             </div>
           </button>
         </div>
       {:else}
-        <div class="text-xs text-muted mb-1">부모 폴더</div>
-        <div class="font-mono text-xs text-white break-all mb-3">{parentDir}</div>
+        <div class="text-xs text-fg-muted mb-1">부모 폴더</div>
+        <div class="font-mono text-xs text-fg break-all mb-3">{parentDir}</div>
 
-        <label for="add-vault-name" class="text-xs text-muted block mb-1">볼트 이름</label>
+        <label for="add-vault-name" class="text-xs text-fg-muted block mb-1">볼트 이름</label>
         <input
           id="add-vault-name"
           type="text"
-          class="w-full bg-surface-0 border border-border rounded px-3 py-2 text-sm text-white
+          class="w-full bg-surface-0 border border-border rounded px-3 py-2 text-sm text-fg
                  focus:border-accent focus:outline-none"
           bind:value={vaultName}
           disabled={busy}
@@ -166,15 +166,15 @@
         {/if}
 
         {#if targetPath && nameIsValid}
-          <div class="mt-3 text-xs text-muted">
-            생성 위치: <span class="font-mono text-white">{targetPath}</span>
+          <div class="mt-3 text-xs text-fg-muted">
+            생성 위치: <span class="font-mono text-fg">{targetPath}</span>
           </div>
         {/if}
 
         <div class="flex justify-end gap-2 mt-4">
           <button
-            class="text-xs px-3 py-1.5 rounded border border-border text-muted
-                   hover:text-white hover:border-accent transition-colors disabled:opacity-50"
+            class="text-xs px-3 py-1.5 rounded border border-border text-fg-muted
+                   hover:text-fg hover:border-accent transition-colors disabled:opacity-50"
             onclick={() => {
               step = "choose";
             }}
@@ -183,7 +183,7 @@
             뒤로
           </button>
           <button
-            class="text-xs px-3 py-1.5 rounded bg-accent text-white
+            class="text-xs px-3 py-1.5 rounded bg-accent text-accent-fg
                    hover:bg-accent/80 transition-colors
                    disabled:opacity-50 disabled:cursor-not-allowed"
             onclick={confirmCreate}

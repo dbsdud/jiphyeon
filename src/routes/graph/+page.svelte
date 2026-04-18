@@ -2,6 +2,7 @@
   import { getLinkGraph } from "$lib/api";
   import type { LinkGraph } from "$lib/types";
   import LinkGraphComponent from "$lib/components/LinkGraph.svelte";
+  import { vaultRefresh } from "$lib/stores/vault.svelte";
 
   let graph = $state<LinkGraph | null>(null);
   let loading = $state(true);
@@ -28,7 +29,10 @@
     }
   }
 
-  load();
+  $effect(() => {
+    vaultRefresh.version;
+    load();
+  });
 </script>
 
 <div class="h-full flex flex-col">
@@ -37,7 +41,7 @@
     <div class="flex items-center gap-3">
       <h2 class="text-lg font-semibold">Link Graph</h2>
       {#if graph}
-        <span class="text-xs text-muted">{graph.nodes.length} nodes, {graph.edges.length} edges</span>
+        <span class="text-xs text-fg-muted">{graph.nodes.length} nodes, {graph.edges.length} edges</span>
       {/if}
     </div>
     <!-- Legend -->
@@ -45,7 +49,7 @@
       {#each Object.entries(typeColors) as [type, color]}
         <div class="flex items-center gap-1">
           <span class="w-2.5 h-2.5 rounded-full" style="background: {color}"></span>
-          <span class="text-xs text-muted">{type}</span>
+          <span class="text-xs text-fg-muted">{type}</span>
         </div>
       {/each}
     </div>
@@ -55,7 +59,7 @@
   <div class="flex-1 overflow-hidden">
     {#if loading}
       <div class="flex items-center justify-center h-full">
-        <p class="text-sm text-muted">Loading graph...</p>
+        <p class="text-sm text-fg-muted">Loading graph...</p>
       </div>
     {:else if error}
       <div class="flex items-center justify-center h-full">
@@ -65,7 +69,7 @@
       <LinkGraphComponent {graph} />
     {:else}
       <div class="flex items-center justify-center h-full">
-        <p class="text-sm text-muted">No nodes to display.</p>
+        <p class="text-sm text-fg-muted">No nodes to display.</p>
       </div>
     {/if}
   </div>
