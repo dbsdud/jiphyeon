@@ -66,3 +66,38 @@ class ThemePrefStore {
 }
 
 export const themePref = new ThemePrefStore();
+
+/**
+ * Slice 1.6 — 사이드바 접힘/펼침 상태.
+ * spec: docs/specs/spec-sidebar-collapse.md
+ * `html[data-sidebar]` 속성 세팅 + localStorage 동기화를 함께 담당.
+ */
+const SIDEBAR_STORAGE_KEY = "sidebar-collapsed";
+
+class SidebarStore {
+  collapsed = $state(false);
+
+  set(v: boolean): void {
+    this.collapsed = v;
+    if (typeof document !== "undefined") {
+      if (v) {
+        document.documentElement.dataset.sidebar = "collapsed";
+      } else {
+        delete document.documentElement.dataset.sidebar;
+      }
+    }
+    if (typeof localStorage !== "undefined") {
+      try {
+        localStorage.setItem(SIDEBAR_STORAGE_KEY, v ? "true" : "false");
+      } catch {
+        /* 비활성 환경 무시 */
+      }
+    }
+  }
+
+  toggle(): void {
+    this.set(!this.collapsed);
+  }
+}
+
+export const sidebarStore = new SidebarStore();

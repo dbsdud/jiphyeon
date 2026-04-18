@@ -107,6 +107,7 @@ export interface AppConfig {
   global_shortcut: string;
   density: Density;
   theme: ThemePreference;
+  sidebar_collapsed: boolean;
 }
 
 export interface AppConfigPatch {
@@ -117,6 +118,7 @@ export interface AppConfigPatch {
   quick_note_folder?: string;
   density?: Density;
   theme?: ThemePreference;
+  sidebar_collapsed?: boolean;
 }
 
 export interface DetectedEditor {

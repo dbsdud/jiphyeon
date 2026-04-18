@@ -14,6 +14,7 @@
     switchVault,
     removeVault,
     getConfig,
+    updateConfig,
     rescanVault,
     type VaultStatus,
   } from "$lib/api";
@@ -28,6 +29,7 @@
     watchSystemTheme,
     themeRefresh,
     themePref,
+    sidebarStore,
   } from "$lib/stores/theme.svelte";
 
   const { children } = $props();
@@ -109,6 +111,7 @@
       document.documentElement.dataset.density = cfg.density;
       themePref.set(cfg.theme);
       applyTheme(cfg.theme);
+      sidebarStore.set(cfg.sidebar_collapsed);
       // System 선호일 때만 OS 변경에 반응 (store에서 매번 최신 선호 읽음)
       unwatchSystemTheme = watchSystemTheme((resolved) => {
         if (themePref.value === "system") {
@@ -228,7 +231,30 @@
     toastType = "success";
     toastVisible = true;
   }
+
+  // Slice 1.6 — 사이드바 토글. 즉시 UI 반영 + AppConfig persist.
+  async function toggleSidebar() {
+    sidebarStore.toggle(); // dataset + localStorage 동기화
+    try {
+      await updateConfig({ sidebar_collapsed: sidebarStore.collapsed });
+    } catch (err) {
+      console.warn("sidebar_collapsed persist 실패", err);
+    }
+  }
+
+  function onKeydown(e: KeyboardEvent) {
+    // Cmd/Ctrl + B: 사이드바 토글. input/textarea 포커스 중에는 무시.
+    if (!(e.key === "b" || e.key === "B")) return;
+    if (!(e.metaKey || e.ctrlKey)) return;
+    const target = e.target as HTMLElement | null;
+    const tag = target?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) return;
+    e.preventDefault();
+    toggleSidebar();
+  }
 </script>
+
+<svelte:window onkeydown={onKeydown} />
 
 {#if isCapture}
   {@render children()}
@@ -241,17 +267,25 @@
 {:else}
   <div class="flex h-screen overflow-hidden">
     <!-- Sidebar -->
-    <nav class="w-52 bg-surface-1 border-r border-border flex flex-col shrink-0">
-      <div class="p-4 border-b border-border">
-        <h1 class="text-sm font-bold tracking-wide text-fg">집현</h1>
+    <nav class="sidebar-root w-52 bg-surface-1 border-r border-border flex flex-col shrink-0">
+      <div class="p-4 border-b border-border flex items-center justify-between">
+        <h1 class="sidebar-logo text-sm font-bold tracking-wide text-fg">집현</h1>
+        <button
+          class="text-fg-muted hover:text-fg w-6 h-6 flex items-center justify-center rounded hover:bg-surface-2 transition-colors"
+          onclick={toggleSidebar}
+          title={sidebarStore.collapsed ? "사이드바 펼치기 (⌘/Ctrl+B)" : "사이드바 접기 (⌘/Ctrl+B)"}
+          aria-label="사이드바 토글"
+        >
+          {sidebarStore.collapsed ? "›" : "‹"}
+        </button>
       </div>
 
       <!-- Vaults -->
       <div class="border-b border-border py-2">
-        <div class="flex items-center justify-between px-4 mb-1">
-          <span class="text-xs font-semibold text-fg-muted uppercase tracking-wide">📓 볼트</span>
+        <div class="sidebar-group-header flex items-center justify-between px-4 mb-1">
+          <span class="sidebar-group-title text-xs font-semibold text-fg-muted uppercase tracking-wide">📓 볼트</span>
           <button
-            class="text-sm text-fg-muted hover:text-fg w-5 h-5 flex items-center justify-center rounded hover:bg-surface-2"
+            class="sidebar-vault-add text-sm text-fg-muted hover:text-fg w-5 h-5 flex items-center justify-center rounded hover:bg-surface-2"
             onclick={() => { addVaultOpen = true; }}
             title="볼트 추가"
             aria-label="볼트 추가"
@@ -262,21 +296,22 @@
         <div>
           {#each vaults as vault}
             {@const isActive = vaultStatus?.vault_path === vault.path}
-            <div class="group flex items-center px-4 py-1 hover:bg-surface-2 transition-colors">
+            <div class="sidebar-vault-row group flex items-center px-4 py-1 hover:bg-surface-2 transition-colors"
+                 class:hidden={sidebarStore.collapsed && !isActive}>
               <button
                 class="flex-1 flex items-center gap-2 min-w-0 text-left text-sm
                   {isActive ? 'text-fg font-medium' : 'text-fg-muted hover:text-fg'}
                   disabled:opacity-50"
                 onclick={() => handleSwitch(vault.path)}
                 disabled={vaultActionBusy || isActive}
-                title={vault.path}
+                title={vault.name}
               >
                 <span class="shrink-0 text-xs">{isActive ? '●' : '○'}</span>
-                <span class="truncate">{vault.name}</span>
+                <span class="sidebar-vault-name truncate">{vault.name}</span>
               </button>
               {#if !isActive}
                 <button
-                  class="ml-1 text-xs text-fg-muted opacity-0 group-hover:opacity-100 hover:text-danger transition-opacity
+                  class="sidebar-vault-remove ml-1 text-xs text-fg-muted opacity-0 group-hover:opacity-100 hover:text-danger transition-opacity
                          disabled:opacity-30"
                   onclick={(e) => handleRemove(vault.path, vault.name, e)}
                   disabled={vaultActionBusy}
@@ -289,7 +324,7 @@
             </div>
           {/each}
           {#if vaults.length === 0}
-            <div class="px-4 py-1 text-xs text-fg-muted">
+            <div class="sidebar-label px-4 py-1 text-xs text-fg-muted">
               등록된 볼트 없음
             </div>
           {/if}
@@ -299,48 +334,49 @@
       <div class="flex-1 overflow-y-auto">
         {#each navGroups as group}
           <div class="py-2 border-b border-border last:border-b-0">
-            <div class="px-4 mb-1 text-xs font-semibold text-fg-muted uppercase tracking-wide">
+            <div class="sidebar-group-title px-4 mb-1 text-xs font-semibold text-fg-muted uppercase tracking-wide">
               {group.title}
             </div>
             {#each group.items as item}
               {#if item.action === "clip"}
                 <button
                   type="button"
-                  class="w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors text-fg-muted hover:text-fg hover:bg-surface-2"
+                  class="sidebar-item w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors text-fg-muted hover:text-fg hover:bg-surface-2"
                   onclick={() => { clipOpen = true; }}
-                  title="Web Clip"
+                  title={item.label}
                 >
                   <span>{item.icon}</span>
-                  <span>{item.label}</span>
+                  <span class="sidebar-label">{item.label}</span>
                 </button>
               {:else if item.disabled}
                 <button
                   type="button"
-                  class="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-fg-muted opacity-50 cursor-not-allowed"
+                  class="sidebar-item w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-fg-muted opacity-50 cursor-not-allowed"
                   disabled
                   aria-disabled="true"
-                  title={item.disabledReason}
+                  title={item.disabledReason ?? item.label}
                 >
                   <span>{item.icon}</span>
-                  <span>{item.label}</span>
+                  <span class="sidebar-label">{item.label}</span>
                 </button>
               {:else if item.href}
                 <a
                   href={item.href}
-                  class="flex items-center gap-2 px-4 py-2 text-sm transition-colors
+                  class="sidebar-item flex items-center gap-2 px-4 py-2 text-sm transition-colors
                     {currentPath === item.href
                       ? 'text-fg bg-surface-2'
                       : 'text-fg-muted hover:text-fg hover:bg-surface-2'}"
+                  title={item.label}
                 >
                   <span>{item.icon}</span>
-                  <span>{item.label}</span>
+                  <span class="sidebar-label">{item.label}</span>
                 </a>
               {/if}
             {/each}
           </div>
         {/each}
       </div>
-      <div class="p-3 border-t border-border text-xs text-fg-muted">
+      <div class="sidebar-version p-3 border-t border-border text-xs text-fg-muted">
         v0.6.0
       </div>
     </nav>

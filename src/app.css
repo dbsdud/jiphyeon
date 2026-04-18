@@ -156,6 +156,54 @@ html[data-theme="dark"] { color-scheme: dark; }
 html[data-theme="light"] { color-scheme: light; }
 
 /* ─────────────────────────────
+   Sidebar — Collapse/Expand (Slice 1.6)
+   html[data-sidebar="collapsed"]에서 사이드바 축소(w-52 → w-12).
+   라벨/볼트 이름/그룹 타이틀/버전 숨김. 아이콘만 남긴다.
+   spec: docs/specs/spec-sidebar-collapse.md
+   ───────────────────────────── */
+.sidebar-root {
+  transition: width 150ms ease;
+}
+[data-sidebar="collapsed"] .sidebar-root {
+  width: 3rem; /* 48px = w-12 */
+}
+[data-sidebar="collapsed"] .sidebar-label,
+[data-sidebar="collapsed"] .sidebar-vault-name,
+[data-sidebar="collapsed"] .sidebar-group-title,
+[data-sidebar="collapsed"] .sidebar-version,
+[data-sidebar="collapsed"] .sidebar-logo,
+[data-sidebar="collapsed"] .sidebar-vault-add,
+[data-sidebar="collapsed"] .sidebar-vault-remove {
+  display: none;
+}
+/* collapsed에서 메뉴 아이템/볼트 행의 아이콘만 중앙 정렬 */
+[data-sidebar="collapsed"] .sidebar-item {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+[data-sidebar="collapsed"] .sidebar-vault-row {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+/* 볼트 행 내부 버튼은 기본적으로 flex-1 + text-left로 넓게 퍼지는데,
+   collapsed에선 ●만 남으므로 내부 컨텐츠도 중앙 정렬한다. */
+[data-sidebar="collapsed"] .sidebar-vault-row > button {
+  justify-content: center;
+}
+[data-sidebar="collapsed"] .sidebar-group-header {
+  padding-left: 0;
+  padding-right: 0;
+  justify-content: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-root {
+    transition: none;
+  }
+}
+
+/* ─────────────────────────────
    Density — Compact mode overrides (Slice 1.2)
    html[data-density="compact"]에서 spacing과 text-* 변수만 축소.
    색상/radius/shadow/font-family/font-weight/line-height는 불변.

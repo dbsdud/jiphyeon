@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>집현</title>
     <script>
-      /* Flash-of-wrong-theme 방지: 첫 페인트 전에 theme-pref(localStorage)를 읽어
-         resolved 테마를 html[data-theme]에 선반영한다. 이후 +layout.svelte의
-         onMount에서 config 값으로 한 번 더 덮어쓴다. */
+      /* Flash-of-wrong-theme/sidebar 방지: 첫 페인트 전에 localStorage를 읽어
+         html[data-theme]/html[data-sidebar]에 선반영한다.
+         이후 +layout.svelte의 onMount에서 config 값으로 한 번 더 덮어쓴다. */
       (function () {
         try {
           var pref = localStorage.getItem("theme-pref") || "system";
@@ -21,6 +21,13 @@
           document.documentElement.dataset.theme = resolved;
         } catch (e) {
           document.documentElement.dataset.theme = "dark";
+        }
+        try {
+          if (localStorage.getItem("sidebar-collapsed") === "true") {
+            document.documentElement.dataset.sidebar = "collapsed";
+          }
+        } catch (e) {
+          /* fallback: 기본 펼침 */
         }
       })();
     </script>
