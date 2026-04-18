@@ -14,6 +14,7 @@
   } from "$lib/types";
   import AuditSummary from "$lib/components/AuditSummary.svelte";
   import TagHeatmap from "$lib/components/TagHeatmap.svelte";
+  import { vaultRefresh } from "$lib/stores/vault.svelte";
 
   let stats = $state<VaultStats | null>(null);
   let recentNotes = $state<NoteEntry[]>([]);
@@ -48,7 +49,10 @@
     }
   }
 
-  load();
+  $effect(() => {
+    vaultRefresh.version; // 볼트 변경 시 자동 재로드
+    load();
+  });
 
   function formatDate(timestamp: number): string {
     if (!timestamp) return "";

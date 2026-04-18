@@ -148,31 +148,10 @@ erDiagram
   }
 ```
 
-## 6. DBML 스키마
+## 6. 의도적 파싱 실패 (오류 처리 검증)
 
-```dbml
-Table users {
-  id int [pk, increment]
-  email varchar [unique, not null]
-  created_at timestamp [default: `now()`]
-}
-
-Table notes {
-  id int [pk, increment]
-  author_id int [ref: > users.id]
-  path varchar [not null]
-  title varchar
-}
-
-Table tags {
-  note_id int [ref: > notes.id]
-  tag varchar
-}
-```
-
-## 7. 의도적 파싱 실패 (오류 처리 검증)
-
-아래 블록은 고의로 문법이 깨져 있다. 원본 보존 + 오류 오버레이가 떠야 한다.
+아래 블록은 고의로 문법이 깨져 있다. 원본 보존 + 오류 오버레이만 떠야 하고,
+페이지 하단에 폭탄 SVG가 남지 않아야 한다.
 
 ```mermaid
 flowchart LR
@@ -181,7 +160,7 @@ flowchart LR
 
 인라인 수식 오류: $\bad{syntax$.
 
-## 8. 기타
+## 7. 기타
 
 > 인용구: 이 노트는 Slice 1.3 수동 검증용 고정 샘플이다.
 

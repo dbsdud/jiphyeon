@@ -42,6 +42,31 @@ export async function renderMermaid(root: HTMLElement): Promise<StageReport> {
 
     const source = codeEl.textContent ?? "";
     const id = `mermaid-${Date.now()}-${i}`;
+
+    // render() 전에 parse()로 문법 검증.
+    // parse가 실패하면 render() 내부의 임시 에러 SVG가
+    // document.body에 남는 11.x 버그를 우회할 수 있다.
+    let parseError: unknown = null;
+    try {
+      const ok = await mermaid.parse(source, { suppressErrors: true });
+      if (ok === false) parseError = new Error("mermaid parse failed");
+    } catch (err) {
+      parseError = err;
+    }
+
+    if (parseError) {
+      console.warn("[renderMermaid] parse", parseError);
+      const overlay = document.createElement("div");
+      overlay.className = "diagram-error";
+      overlay.title =
+        parseError instanceof Error ? parseError.message : String(parseError);
+      overlay.textContent = "Failed to render Mermaid diagram";
+      pre.after(overlay);
+      pre.dataset[MARKER] = "true";
+      failed += 1;
+      continue;
+    }
+
     try {
       const { svg } = await mermaid.render(id, source);
       const container = document.createElement("div");
@@ -51,7 +76,7 @@ export async function renderMermaid(root: HTMLElement): Promise<StageReport> {
       pre.replaceWith(container);
       succeeded += 1;
     } catch (err) {
-      console.warn("[renderMermaid]", err);
+      console.warn("[renderMermaid] render", err);
       const overlay = document.createElement("div");
       overlay.className = "diagram-error";
       overlay.title = err instanceof Error ? err.message : String(err);
@@ -59,6 +84,10 @@ export async function renderMermaid(root: HTMLElement): Promise<StageReport> {
       pre.after(overlay);
       pre.dataset[MARKER] = "true";
       failed += 1;
+    } finally {
+      // 방어 차원: render 실패 시 body에 남을 수 있는 임시 컨테이너 제거.
+      document.getElementById(`d${id}`)?.remove();
+      document.getElementById(id)?.remove();
     }
   }
 

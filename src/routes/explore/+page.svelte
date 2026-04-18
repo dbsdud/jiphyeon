@@ -2,6 +2,7 @@
   import { getNoteList, getTagList, getFolderTree, searchNotes, openInEditor } from "$lib/api";
   import type { NoteEntry, TagInfo, FolderNode, SearchResult } from "$lib/types";
   import FolderTree from "$lib/components/FolderTree.svelte";
+  import { vaultRefresh } from "$lib/stores/vault.svelte";
 
   let notes = $state<NoteEntry[]>([]);
   let searchResults = $state<SearchResult[]>([]);
@@ -104,8 +105,11 @@
   const noteTypes = ["til", "decision", "reading", "meeting", "idea", "artifact", "clipping", "moc"];
   const statuses = ["seedling", "growing", "evergreen", "stale"];
 
-  loadSidebar();
-  loadNotes();
+  $effect(() => {
+    vaultRefresh.version; // 볼트 변경 시 자동 재로드
+    loadSidebar();
+    loadNotes();
+  });
 </script>
 
 <div class="flex h-full">

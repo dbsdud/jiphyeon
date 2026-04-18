@@ -1,5 +1,7 @@
 @import "tailwindcss";
-@import "github-markdown-css/github-markdown-light.css";
+/* 앱 토큰이 현재 다크 기반이므로 dark variant 사용.
+   테마 전환 슬라이스에서 html[data-theme]에 따라 light와 분기 예정. */
+@import "github-markdown-css/github-markdown-dark.css";
 
 @theme {
   /* ─────────────────────────────

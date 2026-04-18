@@ -2,6 +2,7 @@
   import { getLinkGraph } from "$lib/api";
   import type { LinkGraph } from "$lib/types";
   import LinkGraphComponent from "$lib/components/LinkGraph.svelte";
+  import { vaultRefresh } from "$lib/stores/vault.svelte";
 
   let graph = $state<LinkGraph | null>(null);
   let loading = $state(true);
@@ -28,7 +29,10 @@
     }
   }
 
-  load();
+  $effect(() => {
+    vaultRefresh.version;
+    load();
+  });
 </script>
 
 <div class="h-full flex flex-col">
