@@ -60,7 +60,7 @@
           {copied ? "복사됨 ✓" : "명령 복사"}
         </button>
         <button
-          class="text-sm px-3 py-1.5 rounded bg-accent text-fg hover:bg-accent/80 transition-colors"
+          class="text-sm px-3 py-1.5 rounded bg-accent text-accent-fg hover:bg-accent/80 transition-colors"
           onclick={onclose}
         >
           시작하기

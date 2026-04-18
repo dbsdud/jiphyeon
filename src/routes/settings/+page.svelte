@@ -12,7 +12,9 @@
     DetectedEditor,
     RescaffoldMode,
     RescaffoldReport,
+    ThemePreference,
   } from "$lib/types";
+  import { applyTheme, themeRefresh, themePref } from "$lib/stores/theme.svelte";
 
   let config = $state<AppConfig | null>(null);
   let editors = $state<DetectedEditor[]>([]);
@@ -28,6 +30,7 @@
   let globalShortcut = $state("");
   let quickNoteFolder = $state("");
   let density = $state<Density>("regular");
+  let theme = $state<ThemePreference>("system");
 
   // 볼트 업데이트(재스캐폴드) 상태
   let rescaffoldMode = $state<RescaffoldMode>("add-missing");
@@ -49,6 +52,7 @@
       globalShortcut = cfg.global_shortcut;
       quickNoteFolder = cfg.quick_note_folder;
       density = cfg.density;
+      theme = cfg.theme;
     } catch (e) {
       error = String(e);
     } finally {
@@ -88,11 +92,15 @@
       global_shortcut: globalShortcut,
       quick_note_folder: quickNoteFolder,
       density,
+      theme,
     };
 
     try {
       config = await updateConfig(patch);
       document.documentElement.dataset.density = config.density;
+      themePref.set(config.theme);
+      applyTheme(config.theme);
+      themeRefresh.bump();
       savedMessage = "저장되었습니다";
       setTimeout(() => {
         savedMessage = "";
@@ -167,12 +175,12 @@
         </p>
       </section>
 
-      <!-- Display / Density -->
+      <!-- Display / Density / Theme -->
       <section class="bg-surface-1 border border-border rounded-xl p-5">
         <h3 class="text-sm font-semibold text-fg mb-3">디스플레이</h3>
 
         <div class="text-xs text-fg-muted mb-2">밀도</div>
-        <div class="space-y-2">
+        <div class="space-y-2 mb-5">
           <label class="flex items-start gap-2 text-sm cursor-pointer">
             <input
               type="radio"
@@ -203,6 +211,54 @@
             </div>
           </label>
         </div>
+
+        <div class="text-xs text-fg-muted mb-2">테마</div>
+        <div class="space-y-2">
+          <label class="flex items-start gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="theme"
+              value="system"
+              bind:group={theme}
+              disabled={saving}
+              class="mt-0.5"
+            />
+            <div>
+              <div class="text-fg">시스템 설정 따르기 (System)</div>
+              <div class="text-xs text-fg-muted">OS의 다크 모드 선호에 맞춰 자동 전환</div>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="theme"
+              value="light"
+              bind:group={theme}
+              disabled={saving}
+              class="mt-0.5"
+            />
+            <div>
+              <div class="text-fg">밝은 테마 (Light)</div>
+              <div class="text-xs text-fg-muted">햇살 들어오는 도서관 톤</div>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="theme"
+              value="dark"
+              bind:group={theme}
+              disabled={saving}
+              class="mt-0.5"
+            />
+            <div>
+              <div class="text-fg">어두운 테마 (Dark)</div>
+              <div class="text-xs text-fg-muted">집현전의 밤, 낮은 눈부심</div>
+            </div>
+          </label>
+        </div>
       </section>
 
       <!-- Editor -->
@@ -223,7 +279,7 @@
               <button
                 class="text-xs px-3 py-1.5 rounded-full border transition-colors
                   {editorCommand === editor.command
-                    ? 'bg-accent text-fg border-accent'
+                    ? 'bg-accent text-accent-fg border-accent'
                     : 'border-border text-fg-muted hover:text-fg hover:border-accent'}"
                 onclick={() => pickEditor(editor)}
               >
@@ -314,7 +370,7 @@
       <!-- Save -->
       <div class="flex items-center gap-3">
         <button
-          class="text-sm px-5 py-2 rounded bg-accent text-fg
+          class="text-sm px-5 py-2 rounded bg-accent text-accent-fg
                  hover:bg-accent/80 transition-colors
                  disabled:opacity-50 disabled:cursor-not-allowed"
           onclick={save}
@@ -388,7 +444,7 @@
             {rescaffoldBusy && !rescaffoldReport ? "확인 중..." : "미리보기"}
           </button>
           <button
-            class="text-sm px-4 py-1.5 rounded bg-accent text-fg
+            class="text-sm px-4 py-1.5 rounded bg-accent text-accent-fg
                    hover:bg-accent/80 transition-colors
                    disabled:opacity-40 disabled:cursor-not-allowed"
             onclick={applyRescaffold}

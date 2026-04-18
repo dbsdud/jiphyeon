@@ -28,7 +28,7 @@
   <div>
     <div
       class="w-full text-left text-sm px-2 py-1 rounded flex items-center gap-1 transition-colors cursor-pointer
-        {selectedPath === node.path ? 'bg-accent/20 text-accent' : 'text-neutral-300 hover:bg-surface-2'}"
+        {selectedPath === node.path ? 'bg-accent/20 text-accent' : 'text-fg hover:bg-surface-2'}"
       style="padding-left: {depth * 0.75 + 0.5}rem"
       role="button"
       tabindex="0"

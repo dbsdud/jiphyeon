@@ -96,7 +96,7 @@
             Cancel
           </button>
           <button
-            class="text-xs px-4 py-1.5 rounded-lg bg-accent text-fg hover:bg-accent/80 transition-colors disabled:opacity-50"
+            class="text-xs px-4 py-1.5 rounded-lg bg-accent text-accent-fg hover:bg-accent/80 transition-colors disabled:opacity-50"
             onclick={handleClip}
             disabled={loading || !url.trim()}
           >

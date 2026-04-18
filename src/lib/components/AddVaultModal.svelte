@@ -183,7 +183,7 @@
             뒤로
           </button>
           <button
-            class="text-xs px-3 py-1.5 rounded bg-accent text-fg
+            class="text-xs px-3 py-1.5 rounded bg-accent text-accent-fg
                    hover:bg-accent/80 transition-colors
                    disabled:opacity-50 disabled:cursor-not-allowed"
             onclick={confirmCreate}

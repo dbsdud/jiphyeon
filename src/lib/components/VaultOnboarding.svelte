@@ -177,7 +177,7 @@
             취소
           </button>
           <button
-            class="text-sm px-4 py-2 rounded bg-accent text-fg
+            class="text-sm px-4 py-2 rounded bg-accent text-accent-fg
                    hover:bg-accent/80 transition-colors
                    disabled:opacity-50 disabled:cursor-not-allowed"
             onclick={confirmCreate}

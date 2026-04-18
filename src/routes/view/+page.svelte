@@ -3,6 +3,7 @@
   import { tick } from "svelte";
   import { getNote, openInEditor } from "$lib/api";
   import type { RenderedNote } from "$lib/types";
+  import { themeRefresh } from "$lib/stores/theme.svelte";
 
   let note = $state<RenderedNote | null>(null);
   let error = $state("");
@@ -43,6 +44,21 @@
     if (note) {
       applyMarkdownPipeline();
     }
+  });
+
+  // 테마 변경 시 현재 노트를 원본 HTML로 되돌리고 파이프라인 재실행.
+  // Mermaid는 `<pre>`를 `<div class="diagram">`으로 치환하므로 단순 마커 리셋만으로는
+  // 재렌더가 불가능 — 원본 HTML 재삽입이 가장 간단.
+  let themeRefreshInitialized = false;
+  $effect(() => {
+    themeRefresh.version;
+    if (!themeRefreshInitialized) {
+      themeRefreshInitialized = true;
+      return;
+    }
+    if (!note || !articleEl) return;
+    articleEl.innerHTML = note.html;
+    applyMarkdownPipeline();
   });
 
   function handleOpenEditor() {
@@ -100,7 +116,7 @@
     </div>
 
     <!-- Content -->
-    <article class="markdown-body mb-8" bind:this={articleEl}>
+    <article class="markdown-body prose prose-sm max-w-none mb-8" bind:this={articleEl}>
       {@html note.html}
     </article>
 

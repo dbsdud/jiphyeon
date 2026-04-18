@@ -1,12 +1,41 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { getClaudeTools, getNote } from "$lib/api";
   import type { ClaudeTools, RenderedNote } from "$lib/types";
+  import { themeRefresh } from "$lib/stores/theme.svelte";
 
   let tools = $state<ClaudeTools | null>(null);
   let claudeNote = $state<RenderedNote | null>(null);
   let loading = $state(true);
   let error = $state("");
   let warningsExpanded = $state(false);
+  let claudeArticleEl = $state<HTMLElement | null>(null);
+
+  async function applyMarkdownPipeline() {
+    await tick();
+    if (!claudeArticleEl) return;
+    const { renderMarkdownPipeline } = await import("$lib/markdown/pipeline");
+    await renderMarkdownPipeline(claudeArticleEl);
+  }
+
+  $effect(() => {
+    if (claudeNote) {
+      applyMarkdownPipeline();
+    }
+  });
+
+  // 테마 변경 시 원본 HTML 재삽입 + 파이프라인 재실행 (view 페이지와 동일 패턴)
+  let themeRefreshInitialized = false;
+  $effect(() => {
+    themeRefresh.version;
+    if (!themeRefreshInitialized) {
+      themeRefreshInitialized = true;
+      return;
+    }
+    if (!claudeNote || !claudeArticleEl) return;
+    claudeArticleEl.innerHTML = claudeNote.html;
+    applyMarkdownPipeline();
+  });
 
   // 이벤트별 훅 그룹 (UI 표시 순서 고정)
   const EVENT_ORDER = [
@@ -75,7 +104,8 @@
         <h3 class="text-sm font-semibold text-fg-muted mb-3">CLAUDE.md</h3>
         {#if tools.claude_md && claudeNote}
           <article
-            class="bg-surface-1 border border-border rounded-xl p-6 prose prose-invert prose-sm max-w-none"
+            class="markdown-body prose prose-sm max-w-none bg-surface-1 border border-border rounded-xl p-6"
+            bind:this={claudeArticleEl}
           >
             {@html claudeNote.html}
           </article>

@@ -23,6 +23,12 @@
     NotificationLevel,
   } from "$lib/types";
   import { vaultRefresh } from "$lib/stores/vault.svelte";
+  import {
+    applyTheme,
+    watchSystemTheme,
+    themeRefresh,
+    themePref,
+  } from "$lib/stores/theme.svelte";
 
   const { children } = $props();
 
@@ -80,6 +86,7 @@
 
   let unlistenNotification: UnlistenFn | null = null;
   let unlistenVaultChanged: UnlistenFn | null = null;
+  let unwatchSystemTheme: (() => void) | null = null;
   let rescanTimer: ReturnType<typeof setTimeout> | null = null;
 
   // 볼트 변경 이벤트는 편집 중 여러 번 올 수 있으므로 프론트에서도 debounce.
@@ -100,6 +107,15 @@
     try {
       const cfg = await getConfig();
       document.documentElement.dataset.density = cfg.density;
+      themePref.set(cfg.theme);
+      applyTheme(cfg.theme);
+      // System 선호일 때만 OS 변경에 반응 (store에서 매번 최신 선호 읽음)
+      unwatchSystemTheme = watchSystemTheme((resolved) => {
+        if (themePref.value === "system") {
+          document.documentElement.dataset.theme = resolved;
+          themeRefresh.bump();
+        }
+      });
     } catch (err) {
       console.error("초기 설정 로드 실패", err);
     }
@@ -126,6 +142,7 @@
   onDestroy(() => {
     unlistenNotification?.();
     unlistenVaultChanged?.();
+    unwatchSystemTheme?.();
     if (rescanTimer) clearTimeout(rescanTimer);
   });
 

@@ -93,6 +93,9 @@ export interface ClipResult {
 }
 
 export type Density = "regular" | "compact";
+export type ThemePreference = "light" | "dark" | "system";
+/** resolved(실제 적용) 테마 — system은 OS 설정으로 계산된 값. */
+export type ResolvedTheme = "light" | "dark";
 
 export interface AppConfig {
   vault_path: string | null;
@@ -103,6 +106,7 @@ export interface AppConfig {
   quick_note_folder: string;
   global_shortcut: string;
   density: Density;
+  theme: ThemePreference;
 }
 
 export interface AppConfigPatch {
@@ -112,6 +116,7 @@ export interface AppConfigPatch {
   global_shortcut?: string;
   quick_note_folder?: string;
   density?: Density;
+  theme?: ThemePreference;
 }
 
 export interface DetectedEditor {

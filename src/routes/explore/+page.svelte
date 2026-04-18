@@ -138,7 +138,7 @@
       {#each noteTypes as type}
         <button
           class="w-full text-left text-sm px-2 py-1 rounded transition-colors
-            {filterType === type ? 'bg-accent/20 text-accent' : 'text-neutral-300 hover:bg-surface-2'}"
+            {filterType === type ? 'bg-accent/20 text-accent' : 'text-fg hover:bg-surface-2'}"
           onclick={() => selectType(type)}
         >
           {typeLabel(type)}
@@ -152,7 +152,7 @@
       {#each statuses as status}
         <button
           class="w-full text-left text-sm px-2 py-1 rounded transition-colors
-            {filterStatus === status ? 'bg-accent/20 text-accent' : 'text-neutral-300 hover:bg-surface-2'}"
+            {filterStatus === status ? 'bg-accent/20 text-accent' : 'text-fg hover:bg-surface-2'}"
           onclick={() => selectStatus(status)}
         >
           {status}
@@ -167,7 +167,7 @@
         {#each tags.slice(0, 20) as tag}
           <button
             class="text-xs px-1.5 py-0.5 rounded-full transition-colors
-              {filterTag === tag.name ? 'bg-accent text-fg' : 'bg-surface-3 text-neutral-300 hover:bg-surface-2'}"
+              {filterTag === tag.name ? 'bg-accent text-accent-fg' : 'bg-surface-3 text-fg hover:bg-surface-2'}"
             onclick={() => selectTag(tag.name)}
           >
             {tag.name}
@@ -197,7 +197,7 @@
           {/if}
         </h2>
         <select
-          class="text-sm bg-surface-2 border border-border rounded px-2 py-1 text-neutral-300"
+          class="text-sm bg-surface-2 border border-border rounded px-2 py-1 text-fg"
           bind:value={sortBy}
           onchange={() => loadNotes()}
         >
