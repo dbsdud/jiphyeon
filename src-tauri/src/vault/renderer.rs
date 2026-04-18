@@ -97,7 +97,9 @@ fn convert_wikilinks(markdown: &str) -> String {
 fn markdown_to_html(markdown: &str) -> String {
     let options = Options::ENABLE_TABLES
         | Options::ENABLE_STRIKETHROUGH
-        | Options::ENABLE_TASKLISTS;
+        | Options::ENABLE_TASKLISTS
+        | Options::ENABLE_FOOTNOTES
+        | Options::ENABLE_SMART_PUNCTUATION;
     let parser = Parser::new_ext(markdown, options);
     let mut html_output = String::new();
     html::push_html(&mut html_output, parser);
@@ -308,5 +310,119 @@ mod tests {
         let html = markdown_to_html("# Title\n\nParagraph");
         assert!(html.contains("<h1>Title</h1>"));
         assert!(html.contains("<p>Paragraph</p>"));
+    }
+
+    // ─────────────────────────────────────────────────────
+    // Slice 1.3a — spec-github-markdown.md Behavior Contract
+    // ─────────────────────────────────────────────────────
+
+    // BC #2: 파이프 테이블
+    #[test]
+    fn test_gfm_table() {
+        let html = markdown_to_html("| A | B |\n|---|---|\n| 1 | 2 |\n");
+        assert!(html.contains("<table>"));
+        assert!(html.contains("<thead>"));
+        assert!(html.contains("<tbody>"));
+        assert!(html.contains("<th>A</th>"));
+        assert!(html.contains("<td>1</td>"));
+    }
+
+    // BC #3: 체크박스
+    #[test]
+    fn test_gfm_task_list() {
+        let html = markdown_to_html("- [x] done\n- [ ] todo\n");
+        assert!(html.contains(r#"<input disabled="" type="checkbox" checked=""/>"#));
+        assert!(html.contains(r#"<input disabled="" type="checkbox"/>"#));
+    }
+
+    // BC #4: 취소선
+    #[test]
+    fn test_gfm_strikethrough() {
+        let html = markdown_to_html("~~취소선~~");
+        assert!(html.contains("<del>취소선</del>"));
+    }
+
+    // BC #5: 각주 (ENABLE_FOOTNOTES 필요)
+    #[test]
+    fn test_gfm_footnote() {
+        let html = markdown_to_html("본문[^1]\n\n[^1]: 각주 내용\n");
+        assert!(
+            html.contains("footnote-reference") || html.contains("footnote"),
+            "각주 참조 태그 없음: {html}"
+        );
+        assert!(
+            html.contains("각주 내용"),
+            "각주 정의 텍스트 없음: {html}"
+        );
+    }
+
+    // BC #6: 스마트 구두점 (ENABLE_SMART_PUNCTUATION 필요)
+    #[test]
+    fn test_gfm_smart_punctuation() {
+        let html = markdown_to_html(r#""quoted" -- dash ..."#);
+        // pulldown-cmark smart punctuation: ", ", –, …
+        assert!(
+            html.contains('\u{201c}') || html.contains("&ldquo;"),
+            "좌 큰따옴표 미변환: {html}"
+        );
+        assert!(
+            html.contains('\u{201d}') || html.contains("&rdquo;"),
+            "우 큰따옴표 미변환: {html}"
+        );
+        assert!(
+            html.contains('\u{2013}') || html.contains('\u{2014}'),
+            "대시 미변환: {html}"
+        );
+        assert!(
+            html.contains('\u{2026}') || html.contains("&hellip;"),
+            "말줄임 미변환: {html}"
+        );
+    }
+
+    // BC #7: 코드 블록은 language-* 클래스
+    #[test]
+    fn test_code_block_language_class() {
+        let html = markdown_to_html("```rust\nfn main() {}\n```");
+        assert!(
+            html.contains(r#"<code class="language-rust">"#),
+            "language-rust 클래스 없음: {html}"
+        );
+    }
+
+    // BC #8: mermaid 블록은 language-mermaid 클래스로 보존
+    #[test]
+    fn test_mermaid_block_preserved() {
+        let html = markdown_to_html("```mermaid\nflowchart TD\n  A --> B\n```");
+        assert!(
+            html.contains(r#"<code class="language-mermaid">"#),
+            "language-mermaid 보존 실패: {html}"
+        );
+        assert!(html.contains("flowchart TD"));
+        assert!(html.contains("A --&gt; B") || html.contains("A --> B"));
+    }
+
+    // BC #9: dbml 블록은 language-dbml 클래스로 보존
+    #[test]
+    fn test_dbml_block_preserved() {
+        let html = markdown_to_html("```dbml\nTable users {\n  id int [pk]\n}\n```");
+        assert!(
+            html.contains(r#"<code class="language-dbml">"#),
+            "language-dbml 보존 실패: {html}"
+        );
+        assert!(html.contains("Table users"));
+    }
+
+    // BC #10: 수식 구문은 HTML 텍스트에 그대로 통과 (프런트 KaTeX 후처리)
+    #[test]
+    fn test_math_syntax_passthrough() {
+        let inline = markdown_to_html("인라인 $E=mc^2$ 끝");
+        assert!(inline.contains("$E=mc^2$"), "인라인 수식 통과 실패: {inline}");
+
+        let block = markdown_to_html("$$\n\\int_0^1 x^2 dx\n$$");
+        assert!(block.contains("$$"), "블록 수식 구분자 통과 실패: {block}");
+        assert!(
+            block.contains("\\int_0^1 x^2 dx") || block.contains("int_0^1 x^2 dx"),
+            "블록 수식 본문 통과 실패: {block}"
+        );
     }
 }
