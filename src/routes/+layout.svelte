@@ -28,15 +28,51 @@
 
   let isCapture = $derived((page.url.pathname as string) === "/capture");
 
-  const navItems = [
-    { href: "/", label: "Dashboard", icon: "📊" },
-    { href: "/explore", label: "Explore", icon: "📁" },
-    { href: "/graph", label: "Graph", icon: "🔗" },
-    { href: "/claude", label: "Claude", icon: "🤖" },
-    { href: "/settings", label: "Settings", icon: "⚙️" },
+  type NavItem = {
+    label: string;
+    icon: string;
+    href?: string;
+    action?: "clip";
+    disabled?: boolean;
+    disabledReason?: string;
+  };
+
+  type NavGroup = {
+    title: string;
+    items: NavItem[];
+  };
+
+  const navGroups: NavGroup[] = [
+    {
+      title: "탐색",
+      items: [
+        { href: "/", label: "Dashboard", icon: "📊" },
+        { href: "/explore", label: "Explore", icon: "📁" },
+        { href: "/graph", label: "Graph", icon: "🔗" },
+      ],
+    },
+    {
+      title: "작업",
+      items: [
+        { action: "clip", label: "Clip", icon: "✂️" },
+        {
+          label: "Transcribe",
+          icon: "🎙️",
+          disabled: true,
+          disabledReason: "Epic 3에서 제공 예정",
+        },
+      ],
+    },
+    {
+      title: "설정",
+      items: [
+        { href: "/claude", label: "Claude", icon: "🤖" },
+        { href: "/settings", label: "Settings", icon: "⚙️" },
+      ],
+    },
   ];
 
-  let currentPath = $state("/");
+  let currentPath = $derived(page.url.pathname as string);
   let clipOpen = $state(false);
   let toastMessage = $state("");
   let toastType = $state<NotificationLevel>("success");
@@ -170,10 +206,6 @@
     }
   }
 
-  function navigate(href: string) {
-    currentPath = href;
-  }
-
   function onClipSuccess(path: string, title: string) {
     toastMessage = `Clipped: ${title}`;
     toastType = "success";
@@ -193,15 +225,8 @@
   <div class="flex h-screen overflow-hidden">
     <!-- Sidebar -->
     <nav class="w-52 bg-surface-1 border-r border-border flex flex-col shrink-0">
-      <div class="p-4 border-b border-border flex items-center justify-between">
+      <div class="p-4 border-b border-border">
         <h1 class="text-sm font-bold tracking-wide text-fg">집현</h1>
-        <button
-          class="text-xs px-2 py-1 rounded bg-surface-2 border border-border text-fg-muted hover:text-fg hover:border-accent transition-colors"
-          onclick={() => { clipOpen = true; }}
-          title="Web Clip"
-        >
-          + Clip
-        </button>
       </div>
 
       <!-- Vaults -->
@@ -254,23 +279,52 @@
         </div>
       </div>
 
-      <div class="flex-1 py-2">
-        {#each navItems as item}
-          <a
-            href={item.href}
-            class="flex items-center gap-2 px-4 py-2 text-sm transition-colors
-              {currentPath === item.href
-                ? 'text-fg bg-surface-2'
-                : 'text-fg-muted hover:text-fg hover:bg-surface-2'}"
-            onclick={(e) => { navigate(item.href); }}
-          >
-            <span>{item.icon}</span>
-            <span>{item.label}</span>
-          </a>
+      <div class="flex-1 overflow-y-auto">
+        {#each navGroups as group}
+          <div class="py-2 border-b border-border last:border-b-0">
+            <div class="px-4 mb-1 text-xs font-semibold text-fg-muted uppercase tracking-wide">
+              {group.title}
+            </div>
+            {#each group.items as item}
+              {#if item.action === "clip"}
+                <button
+                  type="button"
+                  class="w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors text-fg-muted hover:text-fg hover:bg-surface-2"
+                  onclick={() => { clipOpen = true; }}
+                  title="Web Clip"
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              {:else if item.disabled}
+                <button
+                  type="button"
+                  class="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-fg-muted opacity-50 cursor-not-allowed"
+                  disabled
+                  aria-disabled="true"
+                  title={item.disabledReason}
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              {:else if item.href}
+                <a
+                  href={item.href}
+                  class="flex items-center gap-2 px-4 py-2 text-sm transition-colors
+                    {currentPath === item.href
+                      ? 'text-fg bg-surface-2'
+                      : 'text-fg-muted hover:text-fg hover:bg-surface-2'}"
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </a>
+              {/if}
+            {/each}
+          </div>
         {/each}
       </div>
       <div class="p-3 border-t border-border text-xs text-fg-muted">
-        v0.5.0
+        v0.6.0
       </div>
     </nav>
 
