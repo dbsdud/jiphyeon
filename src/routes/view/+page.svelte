@@ -1,11 +1,13 @@
 <script lang="ts">
   import { page } from "$app/state";
+  import { tick } from "svelte";
   import { getNote, openInEditor } from "$lib/api";
   import type { RenderedNote } from "$lib/types";
 
   let note = $state<RenderedNote | null>(null);
   let error = $state("");
   let loading = $state(true);
+  let articleEl = $state<HTMLElement | null>(null);
 
   let notePath = $derived(page.url.searchParams.get("path") ?? "");
 
@@ -26,8 +28,21 @@
     }
   }
 
+  async function applyMarkdownPipeline() {
+    await tick();
+    if (!articleEl) return;
+    const { renderMarkdownPipeline } = await import("$lib/markdown/pipeline");
+    await renderMarkdownPipeline(articleEl);
+  }
+
   $effect(() => {
     load(notePath);
+  });
+
+  $effect(() => {
+    if (note) {
+      applyMarkdownPipeline();
+    }
   });
 
   function handleOpenEditor() {
@@ -85,7 +100,7 @@
     </div>
 
     <!-- Content -->
-    <article class="prose prose-invert prose-sm max-w-none mb-8">
+    <article class="markdown-body mb-8" bind:this={articleEl}>
       {@html note.html}
     </article>
 
@@ -129,43 +144,3 @@
   {/if}
 </div>
 
-<style>
-  :global(article.prose a.wikilink) {
-    color: var(--color-accent);
-    text-decoration: none;
-    border-bottom: 1px dashed var(--color-accent-dim);
-  }
-  :global(article.prose a.wikilink:hover) {
-    border-bottom-style: solid;
-  }
-  :global(article.prose h1) { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 0.75rem; }
-  :global(article.prose h2) { font-size: 1.25rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
-  :global(article.prose h3) { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 0.5rem; }
-  :global(article.prose p) { margin: 0.5rem 0; line-height: 1.7; }
-  :global(article.prose ul) { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
-  :global(article.prose ol) { list-style: decimal; padding-left: 1.5rem; margin: 0.5rem 0; }
-  :global(article.prose li) { margin: 0.25rem 0; }
-  :global(article.prose code) {
-    background: var(--color-surface-2);
-    padding: 0.15rem 0.35rem;
-    border-radius: 0.25rem;
-    font-size: 0.85em;
-  }
-  :global(article.prose pre) {
-    background: var(--color-surface-2);
-    padding: 1rem;
-    border-radius: 0.5rem;
-    overflow-x: auto;
-    margin: 0.75rem 0;
-  }
-  :global(article.prose pre code) {
-    background: none;
-    padding: 0;
-  }
-  :global(article.prose blockquote) {
-    border-left: 3px solid var(--color-border);
-    padding-left: 1rem;
-    color: var(--color-muted);
-    margin: 0.75rem 0;
-  }
-</style>

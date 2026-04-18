@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "github-markdown-css/github-markdown-light.css";
 
 @theme {
   /* ─────────────────────────────
@@ -109,4 +110,131 @@ body {
   font-family: var(--font-sans);
   font-size: var(--text-base);
   line-height: 1.5;
+}
+
+/* ─────────────────────────────
+   Markdown 본문 — Slice 1.3a
+   spec: docs/specs/spec-github-markdown.md
+   github-markdown-css의 로컬 CSS 변수를 디자인 토큰으로 오버라이드한다.
+   ───────────────────────────── */
+.markdown-body {
+  --color-canvas-default: transparent;
+  --color-canvas-subtle: var(--color-surface-2);
+  --color-fg-default: var(--color-fg);
+  --color-fg-muted: var(--color-fg-muted);
+  --color-fg-subtle: var(--color-fg-dim);
+  --color-accent-fg: var(--color-accent);
+  --color-accent-emphasis: var(--color-accent);
+  --color-border-default: var(--color-border);
+  --color-border-muted: var(--color-border);
+  --color-neutral-muted: var(--color-surface-2);
+
+  background: transparent;
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+}
+
+.markdown-body pre {
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+}
+
+.markdown-body code,
+.markdown-body pre {
+  font-family: var(--font-mono);
+}
+
+.markdown-body a.wikilink {
+  color: var(--color-accent);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--color-accent-dim);
+}
+.markdown-body a.wikilink:hover {
+  border-bottom-style: solid;
+}
+
+/* Prism 토큰 — 디자인 토큰 기반, 별도 Prism 테마 CSS는 사용하지 않음 */
+.markdown-body pre code .token.comment,
+.markdown-body pre code .token.prolog,
+.markdown-body pre code .token.doctype,
+.markdown-body pre code .token.cdata {
+  color: var(--color-fg-muted);
+  font-style: italic;
+}
+.markdown-body pre code .token.keyword,
+.markdown-body pre code .token.tag,
+.markdown-body pre code .token.selector,
+.markdown-body pre code .token.important,
+.markdown-body pre code .token.atrule {
+  color: var(--color-accent);
+}
+.markdown-body pre code .token.string,
+.markdown-body pre code .token.attr-value,
+.markdown-body pre code .token.char,
+.markdown-body pre code .token.regex {
+  color: var(--color-success);
+}
+.markdown-body pre code .token.number,
+.markdown-body pre code .token.boolean,
+.markdown-body pre code .token.constant,
+.markdown-body pre code .token.symbol {
+  color: var(--color-warning);
+}
+.markdown-body pre code .token.function,
+.markdown-body pre code .token.class-name,
+.markdown-body pre code .token.builtin {
+  color: var(--color-info);
+}
+.markdown-body pre code .token.punctuation,
+.markdown-body pre code .token.operator {
+  color: var(--color-fg-muted);
+}
+.markdown-body pre code .token.property,
+.markdown-body pre code .token.attr-name,
+.markdown-body pre code .token.variable {
+  color: var(--color-fg);
+}
+.markdown-body pre code .token.deleted {
+  color: var(--color-danger);
+}
+.markdown-body pre code .token.inserted {
+  color: var(--color-success);
+}
+
+/* ─────────────────────────────
+   Slice 1.3b — 수식/다이어그램
+   spec: docs/specs/spec-diagrams.md
+   ───────────────────────────── */
+.markdown-body .diagram {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: calc(var(--spacing) * 3);
+  margin: calc(var(--spacing) * 3) 0;
+  overflow-x: auto;
+}
+.markdown-body .diagram svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+.markdown-body .diagram-error {
+  color: var(--color-danger);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+  border-radius: var(--radius-sm);
+  padding: calc(var(--spacing) * 2);
+  margin: calc(var(--spacing) * 2) 0;
+}
+.markdown-body .katex-display {
+  margin: calc(var(--spacing) * 4) 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.markdown-body .katex-error {
+  color: var(--color-danger);
 }
