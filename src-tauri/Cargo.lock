@@ -2146,7 +2146,7 @@ dependencies = [
 
 [[package]]
 name = "jiphyeon"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "chrono",
  "html2md",
