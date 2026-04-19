@@ -105,6 +105,31 @@ pub struct GraphNode {
     pub title: String,
     pub note_type: Option<NoteType>,
     pub link_count: usize,
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct GodNode {
+    pub path: String,
+    pub title: String,
+    pub note_type: Option<NoteType>,
+    pub backlink_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ClusterInfo {
+    pub id: usize,
+    pub size: usize,
+    pub representative_path: String,
+    pub representative_title: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ClusterSummary {
+    pub cluster_count: usize,
+    pub largest_size: usize,
+    pub isolated_count: usize,
+    pub clusters: Vec<ClusterInfo>,
 }
 
 #[derive(Debug, Clone, Serialize)]

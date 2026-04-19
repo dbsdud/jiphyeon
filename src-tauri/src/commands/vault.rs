@@ -7,7 +7,7 @@ use tauri::State;
 use crate::config::ConfigState;
 use crate::error::AppError;
 use crate::models::{
-    FolderNode, GraphEdge, GraphNode, LinkGraph, NoteEntry, SearchResult, TagInfo, VaultIndex,
+    ClusterSummary, FolderNode, GodNode, LinkGraph, NoteEntry, SearchResult, TagInfo, VaultIndex,
     VaultStats,
 };
 use crate::vault::{indexer, search};
@@ -24,6 +24,21 @@ pub fn get_vault_stats(state: State<'_, VaultState>) -> Result<VaultStats, AppEr
 pub fn get_orphan_notes(state: State<'_, VaultState>) -> Result<Vec<NoteEntry>, AppError> {
     let index = state.read().map_err(|e| AppError::VaultNotFound(e.to_string()))?;
     Ok(indexer::find_orphan_notes(&index))
+}
+
+#[tauri::command]
+pub fn get_top_god_nodes(
+    state: State<'_, VaultState>,
+    limit: usize,
+) -> Result<Vec<GodNode>, AppError> {
+    let index = state.read().map_err(|e| AppError::VaultNotFound(e.to_string()))?;
+    Ok(indexer::compute_top_god_nodes(&index, limit))
+}
+
+#[tauri::command]
+pub fn get_cluster_summary(state: State<'_, VaultState>) -> Result<ClusterSummary, AppError> {
+    let index = state.read().map_err(|e| AppError::VaultNotFound(e.to_string()))?;
+    Ok(indexer::compute_clusters(&index))
 }
 
 #[tauri::command]
@@ -142,31 +157,7 @@ pub fn get_tag_list(state: State<'_, VaultState>) -> Result<Vec<TagInfo>, AppErr
 #[tauri::command]
 pub fn get_link_graph(state: State<'_, VaultState>) -> Result<LinkGraph, AppError> {
     let index = state.read().map_err(|e| AppError::VaultNotFound(e.to_string()))?;
-
-    let nodes: Vec<GraphNode> = index
-        .notes
-        .iter()
-        .map(|n| GraphNode {
-            id: n.title.clone(),
-            path: n.path.clone(),
-            title: n.title.clone(),
-            note_type: n.frontmatter.as_ref().map(|fm| fm.note_type.clone()),
-            link_count: n.outgoing_links.len()
-                + index.backlinks.get(&n.title).map_or(0, |bl| bl.len()),
-        })
-        .collect();
-
-    let mut edges: Vec<GraphEdge> = Vec::new();
-    for note in &index.notes {
-        for link in &note.outgoing_links {
-            edges.push(GraphEdge {
-                source: note.title.clone(),
-                target: link.clone(),
-            });
-        }
-    }
-
-    Ok(LinkGraph { nodes, edges })
+    Ok(indexer::build_link_graph(&index))
 }
 
 #[tauri::command]

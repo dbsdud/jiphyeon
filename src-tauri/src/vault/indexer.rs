@@ -1,11 +1,14 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 
 use chrono::Utc;
 use walkdir::WalkDir;
 
 use crate::error::AppError;
-use crate::models::{NoteEntry, VaultIndex, VaultStats};
+use crate::models::{
+    ClusterInfo, ClusterSummary, GodNode, GraphEdge, GraphNode, LinkGraph, NoteEntry, VaultIndex,
+    VaultStats,
+};
 use crate::vault::parser;
 
 /// 볼트 디렉토리를 재귀 스캔하여 인메모리 인덱스 구축
@@ -145,6 +148,199 @@ pub fn compute_stats(index: &VaultIndex) -> VaultStats {
         orphan_notes,
         broken_links,
     }
+}
+
+/// 볼트의 연결 컴포넌트 요약. 무방향 그래프 BFS 기반.
+///
+/// - broken link(대상 부재)와 self-link는 엣지 제외
+/// - 크기 1 컴포넌트는 `clusters`에서 제외하고 `isolated_count`로 분리
+/// - 정렬: size desc → representative_path asc
+/// - 대표 노트: backlink_count desc → path asc (God Node 규칙 재사용)
+pub fn compute_clusters(index: &VaultIndex) -> ClusterSummary {
+    let note_titles: HashSet<&str> = index.notes.iter().map(|n| n.title.as_str()).collect();
+
+    // 인접 리스트 (title 기준, 무방향). 모든 노트 title을 선등록해 고립도 포함.
+    let mut adj: HashMap<&str, HashSet<&str>> = HashMap::new();
+    for note in &index.notes {
+        adj.entry(note.title.as_str()).or_default();
+    }
+    for note in &index.notes {
+        for target in &note.outgoing_links {
+            if target.as_str() == note.title.as_str() {
+                continue; // self-link 제외
+            }
+            if !note_titles.contains(target.as_str()) {
+                continue; // broken link 제외
+            }
+            adj.entry(note.title.as_str())
+                .or_default()
+                .insert(target.as_str());
+            adj.entry(target.as_str())
+                .or_default()
+                .insert(note.title.as_str());
+        }
+    }
+
+    // BFS로 CC 탐색. title 정렬로 결정론적 순회.
+    let mut titles: Vec<&str> = adj.keys().copied().collect();
+    titles.sort();
+
+    let mut visited: HashSet<&str> = HashSet::new();
+    let mut title_to_comp: HashMap<&str, usize> = HashMap::new();
+    let mut comp_count: usize = 0;
+
+    for &start in &titles {
+        if visited.contains(start) {
+            continue;
+        }
+        let mut queue: VecDeque<&str> = VecDeque::new();
+        queue.push_back(start);
+        visited.insert(start);
+        while let Some(u) = queue.pop_front() {
+            title_to_comp.insert(u, comp_count);
+            if let Some(neighbors) = adj.get(u) {
+                let mut neighbor_vec: Vec<&str> = neighbors.iter().copied().collect();
+                neighbor_vec.sort();
+                for v in neighbor_vec {
+                    if !visited.contains(v) {
+                        visited.insert(v);
+                        queue.push_back(v);
+                    }
+                }
+            }
+        }
+        comp_count += 1;
+    }
+
+    // 각 CC의 노트 배정 (path 기준으로 수집)
+    let mut comp_notes: Vec<Vec<&NoteEntry>> = vec![Vec::new(); comp_count];
+    for note in &index.notes {
+        if let Some(&cid) = title_to_comp.get(note.title.as_str()) {
+            comp_notes[cid].push(note);
+        }
+    }
+
+    let isolated_count = comp_notes.iter().filter(|ns| ns.len() == 1).count();
+
+    let mut clusters: Vec<ClusterInfo> = comp_notes
+        .iter()
+        .filter(|ns| ns.len() >= 2)
+        .map(|ns| {
+            let mut sorted = ns.clone();
+            sorted.sort_by(|a, b| {
+                let ba = note_backlink_count(a, index);
+                let bb = note_backlink_count(b, index);
+                bb.cmp(&ba).then_with(|| a.path.cmp(&b.path))
+            });
+            let rep = sorted[0];
+            ClusterInfo {
+                id: 0,
+                size: ns.len(),
+                representative_path: rep.path.clone(),
+                representative_title: rep.title.clone(),
+            }
+        })
+        .collect();
+
+    clusters.sort_by(|a, b| {
+        b.size
+            .cmp(&a.size)
+            .then_with(|| a.representative_path.cmp(&b.representative_path))
+    });
+    for (i, c) in clusters.iter_mut().enumerate() {
+        c.id = i;
+    }
+
+    let largest_size = clusters.first().map(|c| c.size).unwrap_or(0);
+
+    ClusterSummary {
+        cluster_count: clusters.len(),
+        largest_size,
+        isolated_count,
+        clusters,
+    }
+}
+
+fn note_backlink_count(note: &NoteEntry, index: &VaultIndex) -> usize {
+    index
+        .backlinks
+        .get(&note.title)
+        .map(|sources| sources.iter().filter(|src| **src != note.path).count())
+        .unwrap_or(0)
+}
+
+/// 볼트 인덱스에서 `LinkGraph`를 구축.
+///
+/// - 노드 `tags`는 frontmatter.tags를 반영 (없으면 빈 `Vec`)
+/// - `link_count = outgoing + incoming backlinks`
+/// - 엣지는 각 노트의 `outgoing_links`를 title 기준으로 기록 (broken link 포함)
+pub fn build_link_graph(index: &VaultIndex) -> LinkGraph {
+    let nodes: Vec<GraphNode> = index
+        .notes
+        .iter()
+        .map(|n| GraphNode {
+            id: n.title.clone(),
+            path: n.path.clone(),
+            title: n.title.clone(),
+            note_type: n.frontmatter.as_ref().map(|fm| fm.note_type.clone()),
+            link_count: n.outgoing_links.len()
+                + index.backlinks.get(&n.title).map_or(0, |bl| bl.len()),
+            tags: n
+                .frontmatter
+                .as_ref()
+                .map(|fm| fm.tags.clone())
+                .unwrap_or_default(),
+        })
+        .collect();
+
+    let mut edges: Vec<GraphEdge> = Vec::new();
+    for note in &index.notes {
+        for link in &note.outgoing_links {
+            edges.push(GraphEdge {
+                source: note.title.clone(),
+                target: link.clone(),
+            });
+        }
+    }
+
+    LinkGraph { nodes, edges }
+}
+
+/// backlink 수 상위 N개 노트(= God Node) 반환.
+///
+/// - incoming link 기준, self-reference 제외, broken link 제외
+/// - 정렬: backlink_count desc → path asc (결정론적)
+/// - backlink_count가 0인 노트는 포함하지 않음
+pub fn compute_top_god_nodes(index: &VaultIndex, limit: usize) -> Vec<GodNode> {
+    if limit == 0 {
+        return Vec::new();
+    }
+
+    let mut candidates: Vec<GodNode> = index
+        .notes
+        .iter()
+        .filter_map(|note| {
+            let sources = index.backlinks.get(&note.title)?;
+            let count = sources.iter().filter(|src| **src != note.path).count();
+            if count == 0 {
+                return None;
+            }
+            Some(GodNode {
+                path: note.path.clone(),
+                title: note.title.clone(),
+                note_type: note.frontmatter.as_ref().map(|fm| fm.note_type.clone()),
+                backlink_count: count,
+            })
+        })
+        .collect();
+
+    candidates.sort_by(|a, b| {
+        b.backlink_count
+            .cmp(&a.backlink_count)
+            .then_with(|| a.path.cmp(&b.path))
+    });
+    candidates.truncate(limit);
+    candidates
 }
 
 #[cfg(test)]
@@ -399,5 +595,371 @@ mod tests {
         assert_eq!(*stats.by_folder.get("decisions").unwrap(), 1);
         // 루트의 노트는 "." 또는 "" 키로
         assert_eq!(stats.by_folder.values().sum::<usize>(), 4);
+    }
+
+    // ── compute_top_god_nodes ──
+
+    fn make_note(path: &str, title: &str, outgoing: Vec<&str>) -> NoteEntry {
+        NoteEntry {
+            path: path.into(),
+            title: title.into(),
+            frontmatter: None,
+            outgoing_links: outgoing.into_iter().map(String::from).collect(),
+            modified_at: 0,
+            size: 0,
+            body: String::new(),
+        }
+    }
+
+    fn make_index(notes: Vec<NoteEntry>) -> VaultIndex {
+        let backlinks = build_backlinks(&notes);
+        VaultIndex {
+            notes,
+            backlinks,
+            scanned_at: 0,
+        }
+    }
+
+    #[test]
+    fn top_god_nodes_empty_index_returns_empty() {
+        let index = make_index(vec![]);
+        assert_eq!(compute_top_god_nodes(&index, 5), vec![]);
+    }
+
+    #[test]
+    fn top_god_nodes_zero_limit_returns_empty() {
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["b"]),
+            make_note("b.md", "b", vec![]),
+        ]);
+        assert_eq!(compute_top_god_nodes(&index, 0), vec![]);
+    }
+
+    #[test]
+    fn top_god_nodes_excludes_notes_without_backlinks() {
+        // a→b, c: 아무도 참조 안 함
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["b"]),
+            make_note("b.md", "b", vec![]),
+            make_note("c.md", "c", vec![]),
+        ]);
+        let result = compute_top_god_nodes(&index, 5);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].title, "b");
+        assert_eq!(result[0].backlink_count, 1);
+    }
+
+    #[test]
+    fn top_god_nodes_orders_by_backlink_count_desc() {
+        // b: 2 backlinks (a, c), e: 1 backlink (d)
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["b"]),
+            make_note("b.md", "b", vec![]),
+            make_note("c.md", "c", vec!["b"]),
+            make_note("d.md", "d", vec!["e"]),
+            make_note("e.md", "e", vec![]),
+        ]);
+        let result = compute_top_god_nodes(&index, 5);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].title, "b");
+        assert_eq!(result[0].backlink_count, 2);
+        assert_eq!(result[1].title, "e");
+        assert_eq!(result[1].backlink_count, 1);
+    }
+
+    #[test]
+    fn top_god_nodes_ties_broken_by_path_asc() {
+        // a→x, a→y: x와 y 각각 1 backlink. path z.md < y.md 순으로 asc
+        // x.path="z.md", y.path="y.md" → 기대: y가 먼저
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["x", "y"]),
+            make_note("z.md", "x", vec![]),
+            make_note("y.md", "y", vec![]),
+        ]);
+        let result = compute_top_god_nodes(&index, 5);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].path, "y.md");
+        assert_eq!(result[1].path, "z.md");
+    }
+
+    #[test]
+    fn top_god_nodes_excludes_self_reference() {
+        // a→a (self) + b→a: a의 실제 backlink_count는 1
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["a"]),
+            make_note("b.md", "b", vec!["a"]),
+        ]);
+        let result = compute_top_god_nodes(&index, 5);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].title, "a");
+        assert_eq!(result[0].backlink_count, 1);
+    }
+
+    #[test]
+    fn top_god_nodes_self_only_reference_returns_empty() {
+        // a→a 만 존재: self 제외 후 0 → 결과 제외
+        let index = make_index(vec![make_note("a.md", "a", vec!["a"])]);
+        let result = compute_top_god_nodes(&index, 5);
+        assert_eq!(result, vec![]);
+    }
+
+    #[test]
+    fn top_god_nodes_excludes_broken_links() {
+        // a→nonexistent (broken), a→b, c→b
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["nonexistent", "b"]),
+            make_note("b.md", "b", vec![]),
+            make_note("c.md", "c", vec!["b"]),
+        ]);
+        let result = compute_top_god_nodes(&index, 5);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].title, "b");
+        assert_eq!(result[0].backlink_count, 2);
+        // broken title "nonexistent"는 결과에 없어야 함
+        assert!(result.iter().all(|g| g.title != "nonexistent"));
+    }
+
+    #[test]
+    fn top_god_nodes_respects_limit() {
+        // 3개 노트가 각각 backlink=1. limit=2면 2개만 반환, path asc.
+        let index = make_index(vec![
+            make_note("src.md", "src", vec!["a", "b", "c"]),
+            make_note("a.md", "a", vec![]),
+            make_note("b.md", "b", vec![]),
+            make_note("c.md", "c", vec![]),
+        ]);
+        let result = compute_top_god_nodes(&index, 2);
+        assert_eq!(result.len(), 2);
+        // 동률이므로 path asc: a.md, b.md
+        assert_eq!(result[0].path, "a.md");
+        assert_eq!(result[1].path, "b.md");
+    }
+
+    // ── compute_clusters ──
+
+    #[test]
+    fn clusters_empty_index_returns_zero() {
+        let index = make_index(vec![]);
+        let s = compute_clusters(&index);
+        assert_eq!(s.cluster_count, 0);
+        assert_eq!(s.largest_size, 0);
+        assert_eq!(s.isolated_count, 0);
+        assert_eq!(s.clusters, vec![]);
+    }
+
+    #[test]
+    fn clusters_no_links_returns_isolated_only() {
+        let index = make_index(vec![
+            make_note("a.md", "a", vec![]),
+            make_note("b.md", "b", vec![]),
+            make_note("c.md", "c", vec![]),
+        ]);
+        let s = compute_clusters(&index);
+        assert_eq!(s.cluster_count, 0);
+        assert_eq!(s.largest_size, 0);
+        assert_eq!(s.isolated_count, 3);
+        assert_eq!(s.clusters, vec![]);
+    }
+
+    #[test]
+    fn clusters_single_edge_makes_pair() {
+        // a→b, c는 고립
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["b"]),
+            make_note("b.md", "b", vec![]),
+            make_note("c.md", "c", vec![]),
+        ]);
+        let s = compute_clusters(&index);
+        assert_eq!(s.cluster_count, 1);
+        assert_eq!(s.largest_size, 2);
+        assert_eq!(s.isolated_count, 1);
+        assert_eq!(s.clusters.len(), 1);
+        assert_eq!(s.clusters[0].size, 2);
+    }
+
+    #[test]
+    fn clusters_chain_merges_into_one() {
+        // a→b→c: 하나의 CC (size 3)
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["b"]),
+            make_note("b.md", "b", vec!["c"]),
+            make_note("c.md", "c", vec![]),
+        ]);
+        let s = compute_clusters(&index);
+        assert_eq!(s.cluster_count, 1);
+        assert_eq!(s.largest_size, 3);
+        assert_eq!(s.isolated_count, 0);
+        assert_eq!(s.clusters[0].size, 3);
+    }
+
+    #[test]
+    fn clusters_two_separate_groups() {
+        // {a,b}, {c,d}
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["b"]),
+            make_note("b.md", "b", vec![]),
+            make_note("c.md", "c", vec!["d"]),
+            make_note("d.md", "d", vec![]),
+        ]);
+        let s = compute_clusters(&index);
+        assert_eq!(s.cluster_count, 2);
+        assert_eq!(s.largest_size, 2);
+        assert_eq!(s.isolated_count, 0);
+        assert_eq!(s.clusters.len(), 2);
+        assert!(s.clusters.iter().all(|c| c.size == 2));
+    }
+
+    #[test]
+    fn clusters_many_equal_size_sorted_by_path() {
+        // 4개 그룹 각각 size=2. 각 그룹에서 b접미사 노트가 backlink=1이라 대표.
+        // 대표 path asc 정렬 확인: ab.md, bb.md, mb.md, zb.md
+        let index = make_index(vec![
+            make_note("za.md", "za", vec!["zb"]),
+            make_note("zb.md", "zb", vec![]),
+            make_note("aa.md", "aa", vec!["ab"]),
+            make_note("ab.md", "ab", vec![]),
+            make_note("ma.md", "ma", vec!["mb"]),
+            make_note("mb.md", "mb", vec![]),
+            make_note("ba.md", "ba", vec!["bb"]),
+            make_note("bb.md", "bb", vec![]),
+        ]);
+        let s = compute_clusters(&index);
+        assert_eq!(s.cluster_count, 4);
+        let rep_paths: Vec<&str> = s
+            .clusters
+            .iter()
+            .map(|c| c.representative_path.as_str())
+            .collect();
+        assert_eq!(rep_paths, vec!["ab.md", "bb.md", "mb.md", "zb.md"]);
+    }
+
+    #[test]
+    fn clusters_ignores_broken_links() {
+        // a→nonexistent, a→b, c는 고립
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["nonexistent", "b"]),
+            make_note("b.md", "b", vec![]),
+            make_note("c.md", "c", vec![]),
+        ]);
+        let s = compute_clusters(&index);
+        // broken link 무시 → {a,b} 한 CC, c 고립
+        assert_eq!(s.cluster_count, 1);
+        assert_eq!(s.largest_size, 2);
+        assert_eq!(s.isolated_count, 1);
+    }
+
+    #[test]
+    fn clusters_self_link_does_not_create_cluster() {
+        // a→a (self), b (고립)
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["a"]),
+            make_note("b.md", "b", vec![]),
+        ]);
+        let s = compute_clusters(&index);
+        // self-link는 엣지 제외 → 둘 다 고립
+        assert_eq!(s.cluster_count, 0);
+        assert_eq!(s.isolated_count, 2);
+    }
+
+    #[test]
+    fn clusters_representative_by_backlink_count() {
+        // a→b, c→b: b의 backlink=2, a/c backlink=0
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["b"]),
+            make_note("b.md", "b", vec![]),
+            make_note("c.md", "c", vec!["b"]),
+        ]);
+        let s = compute_clusters(&index);
+        assert_eq!(s.cluster_count, 1);
+        assert_eq!(s.clusters[0].size, 3);
+        // 대표는 backlink 최다 = b
+        assert_eq!(s.clusters[0].representative_title, "b");
+        assert_eq!(s.clusters[0].representative_path, "b.md");
+    }
+
+    #[test]
+    fn clusters_representative_ties_broken_by_path() {
+        // a↔b (상호 참조): 둘 다 backlink=1. path asc → a가 대표
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["b"]),
+            make_note("b.md", "b", vec!["a"]),
+        ]);
+        let s = compute_clusters(&index);
+        assert_eq!(s.cluster_count, 1);
+        assert_eq!(s.clusters[0].representative_path, "a.md");
+    }
+
+    #[test]
+    fn clusters_sorted_by_size_desc() {
+        // big: {a,b,c,d,e} (size 5), small: {x,y} (size 2)
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["b"]),
+            make_note("b.md", "b", vec!["c"]),
+            make_note("c.md", "c", vec!["d"]),
+            make_note("d.md", "d", vec!["e"]),
+            make_note("e.md", "e", vec![]),
+            make_note("x.md", "x", vec!["y"]),
+            make_note("y.md", "y", vec![]),
+        ]);
+        let s = compute_clusters(&index);
+        assert_eq!(s.cluster_count, 2);
+        assert_eq!(s.largest_size, 5);
+        // size desc
+        assert_eq!(s.clusters[0].size, 5);
+        assert_eq!(s.clusters[1].size, 2);
+        assert_eq!(s.clusters[0].id, 0);
+        assert_eq!(s.clusters[1].id, 1);
+    }
+
+    // ── build_link_graph ──
+
+    const TAGGED_NOTE: &str =
+        "---\ntype: til\ncreated: 2026-04-20\ntags:\n  - rust\n  - arch\n---\n# Tagged\n";
+
+    #[test]
+    fn link_graph_node_tags_from_frontmatter() {
+        let dir = create_vault_dir();
+        write_md(dir.path(), "tagged.md", TAGGED_NOTE);
+
+        let index = scan_vault(dir.path(), &[]).unwrap();
+        let graph = build_link_graph(&index);
+
+        assert_eq!(graph.nodes.len(), 1);
+        let node = &graph.nodes[0];
+        assert_eq!(node.tags, vec!["rust".to_string(), "arch".to_string()]);
+    }
+
+    #[test]
+    fn link_graph_node_tags_empty_when_no_frontmatter() {
+        let dir = create_vault_dir();
+        write_md(dir.path(), "plain.md", PLAIN_NOTE);
+
+        let index = scan_vault(dir.path(), &[]).unwrap();
+        let graph = build_link_graph(&index);
+
+        assert_eq!(graph.nodes.len(), 1);
+        assert!(graph.nodes[0].tags.is_empty());
+    }
+
+    #[test]
+    fn clusters_same_size_tiebreak_by_representative_path() {
+        // 두 CC 모두 size=2. 대표 path가 "a.md"(group1)와 "m.md"(group2)
+        // - group1: a→b (a가 대표; b는 backlink 1, a는 0 → 실제 대표 b 아님?)
+        // 깔끔한 테스트: 각 CC에서 대표가 될 노트가 명확한 경우
+        // group1: a→b, b가 backlink=1 → 대표 b (path "b.md")
+        // group2: m→n, n이 backlink=1 → 대표 n (path "n.md")
+        // 결과: [b.md, n.md] — path asc
+        let index = make_index(vec![
+            make_note("a.md", "a", vec!["b"]),
+            make_note("b.md", "b", vec![]),
+            make_note("m.md", "m", vec!["n"]),
+            make_note("n.md", "n", vec![]),
+        ]);
+        let s = compute_clusters(&index);
+        assert_eq!(s.cluster_count, 2);
+        assert_eq!(s.clusters[0].size, 2);
+        assert_eq!(s.clusters[1].size, 2);
+        assert_eq!(s.clusters[0].representative_path, "b.md");
+        assert_eq!(s.clusters[1].representative_path, "n.md");
     }
 }

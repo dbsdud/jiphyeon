@@ -377,7 +377,7 @@
         {/each}
       </div>
       <div class="sidebar-version p-3 border-t border-border text-xs text-fg-muted">
-        v0.6.0
+        v0.7.0
       </div>
     </nav>
 

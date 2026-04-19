@@ -119,6 +119,8 @@ pub fn run() {
             commands::vault::search_notes,
             commands::vault::rescan_vault,
             commands::vault::get_orphan_notes,
+            commands::vault::get_top_god_nodes,
+            commands::vault::get_cluster_summary,
             commands::note::get_note,
             commands::note::get_backlinks,
             commands::note::open_in_editor,
