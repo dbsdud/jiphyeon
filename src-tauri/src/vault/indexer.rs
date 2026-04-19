@@ -5,7 +5,10 @@ use chrono::Utc;
 use walkdir::WalkDir;
 
 use crate::error::AppError;
-use crate::models::{ClusterInfo, ClusterSummary, GodNode, NoteEntry, VaultIndex, VaultStats};
+use crate::models::{
+    ClusterInfo, ClusterSummary, GodNode, GraphEdge, GraphNode, LinkGraph, NoteEntry, VaultIndex,
+    VaultStats,
+};
 use crate::vault::parser;
 
 /// 볼트 디렉토리를 재귀 스캔하여 인메모리 인덱스 구축
@@ -264,6 +267,43 @@ fn note_backlink_count(note: &NoteEntry, index: &VaultIndex) -> usize {
         .get(&note.title)
         .map(|sources| sources.iter().filter(|src| **src != note.path).count())
         .unwrap_or(0)
+}
+
+/// 볼트 인덱스에서 `LinkGraph`를 구축.
+///
+/// - 노드 `tags`는 frontmatter.tags를 반영 (없으면 빈 `Vec`)
+/// - `link_count = outgoing + incoming backlinks`
+/// - 엣지는 각 노트의 `outgoing_links`를 title 기준으로 기록 (broken link 포함)
+pub fn build_link_graph(index: &VaultIndex) -> LinkGraph {
+    let nodes: Vec<GraphNode> = index
+        .notes
+        .iter()
+        .map(|n| GraphNode {
+            id: n.title.clone(),
+            path: n.path.clone(),
+            title: n.title.clone(),
+            note_type: n.frontmatter.as_ref().map(|fm| fm.note_type.clone()),
+            link_count: n.outgoing_links.len()
+                + index.backlinks.get(&n.title).map_or(0, |bl| bl.len()),
+            tags: n
+                .frontmatter
+                .as_ref()
+                .map(|fm| fm.tags.clone())
+                .unwrap_or_default(),
+        })
+        .collect();
+
+    let mut edges: Vec<GraphEdge> = Vec::new();
+    for note in &index.notes {
+        for link in &note.outgoing_links {
+            edges.push(GraphEdge {
+                source: note.title.clone(),
+                target: link.clone(),
+            });
+        }
+    }
+
+    LinkGraph { nodes, edges }
 }
 
 /// backlink 수 상위 N개 노트(= God Node) 반환.
@@ -869,6 +909,36 @@ mod tests {
         assert_eq!(s.clusters[1].size, 2);
         assert_eq!(s.clusters[0].id, 0);
         assert_eq!(s.clusters[1].id, 1);
+    }
+
+    // ── build_link_graph ──
+
+    const TAGGED_NOTE: &str =
+        "---\ntype: til\ncreated: 2026-04-20\ntags:\n  - rust\n  - arch\n---\n# Tagged\n";
+
+    #[test]
+    fn link_graph_node_tags_from_frontmatter() {
+        let dir = create_vault_dir();
+        write_md(dir.path(), "tagged.md", TAGGED_NOTE);
+
+        let index = scan_vault(dir.path(), &[]).unwrap();
+        let graph = build_link_graph(&index);
+
+        assert_eq!(graph.nodes.len(), 1);
+        let node = &graph.nodes[0];
+        assert_eq!(node.tags, vec!["rust".to_string(), "arch".to_string()]);
+    }
+
+    #[test]
+    fn link_graph_node_tags_empty_when_no_frontmatter() {
+        let dir = create_vault_dir();
+        write_md(dir.path(), "plain.md", PLAIN_NOTE);
+
+        let index = scan_vault(dir.path(), &[]).unwrap();
+        let graph = build_link_graph(&index);
+
+        assert_eq!(graph.nodes.len(), 1);
+        assert!(graph.nodes[0].tags.is_empty());
     }
 
     #[test]

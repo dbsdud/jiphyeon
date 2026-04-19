@@ -105,6 +105,7 @@ pub struct GraphNode {
     pub title: String,
     pub note_type: Option<NoteType>,
     pub link_count: usize,
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]

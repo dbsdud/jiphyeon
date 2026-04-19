@@ -13,9 +13,20 @@
 
   interface Props {
     graph: LinkGraph;
+    activeNodeIds?: Set<string> | null;
   }
 
-  let { graph }: Props = $props();
+  let { graph, activeNodeIds = null }: Props = $props();
+
+  function nodeOpacity(id: string): number {
+    if (activeNodeIds === null) return 1;
+    return activeNodeIds.has(id) ? 1 : 0.15;
+  }
+
+  function edgeOpacity(srcId: string, tgtId: string): number {
+    if (activeNodeIds === null) return 0.6;
+    return activeNodeIds.has(srcId) && activeNodeIds.has(tgtId) ? 0.6 : 0.1;
+  }
 
   let svgEl: SVGSVGElement;
   let width = $state(800);
@@ -147,19 +158,21 @@
       {@const t = typeof link.target === "object" ? link.target : null}
       {#if s && t}
         <line
+          class="edge"
           x1={s.x}
           y1={s.y}
           x2={t.x}
           y2={t.y}
           stroke="#333"
           stroke-width="0.5"
-          stroke-opacity="0.6"
+          stroke-opacity={edgeOpacity(s.id, t.id)}
         />
       {/if}
     {/each}
 
     <!-- Nodes -->
     {#each nodes as node}
+      {@const op = nodeOpacity(node.id)}
       <a href="/view?path={encodeURIComponent(node.path)}">
         <circle
           class="node"
@@ -171,6 +184,7 @@
           stroke={nodeColor(node.note_type)}
           stroke-width="1.5"
           stroke-opacity="0.4"
+          opacity={op}
         />
         {#if transform.k > 0.6}
           <text
@@ -179,6 +193,7 @@
             text-anchor="middle"
             fill="#ccc"
             font-size="{Math.min(10 / transform.k, 11)}"
+            opacity={op}
             class="pointer-events-none"
           >
             {node.title}
@@ -188,3 +203,18 @@
     {/each}
   </g>
 </svg>
+
+<style>
+  circle.node,
+  line.edge,
+  text {
+    transition: opacity 200ms ease, stroke-opacity 200ms ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    circle.node,
+    line.edge,
+    text {
+      transition: none;
+    }
+  }
+</style>

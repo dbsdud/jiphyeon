@@ -52,6 +52,7 @@ export interface GraphNode {
   title: string;
   note_type?: string;
   link_count: number;
+  tags: string[];
 }
 
 export interface GodNode {
