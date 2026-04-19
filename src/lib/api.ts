@@ -5,6 +5,7 @@ import type {
   TagInfo,
   LinkGraph,
   GodNode,
+  ClusterSummary,
   FolderNode,
   RenderedNote,
   BacklinkEntry,
@@ -65,6 +66,10 @@ export function getOrphanNotes(): Promise<NoteEntry[]> {
 
 export function getTopGodNodes(limit: number): Promise<GodNode[]> {
   return invoke("get_top_god_nodes", { limit });
+}
+
+export function getClusterSummary(): Promise<ClusterSummary> {
+  return invoke("get_cluster_summary");
 }
 
 export function getNote(path: string): Promise<RenderedNote> {

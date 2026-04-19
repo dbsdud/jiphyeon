@@ -7,8 +7,8 @@ use tauri::State;
 use crate::config::ConfigState;
 use crate::error::AppError;
 use crate::models::{
-    FolderNode, GodNode, GraphEdge, GraphNode, LinkGraph, NoteEntry, SearchResult, TagInfo,
-    VaultIndex, VaultStats,
+    ClusterSummary, FolderNode, GodNode, GraphEdge, GraphNode, LinkGraph, NoteEntry, SearchResult,
+    TagInfo, VaultIndex, VaultStats,
 };
 use crate::vault::{indexer, search};
 
@@ -33,6 +33,12 @@ pub fn get_top_god_nodes(
 ) -> Result<Vec<GodNode>, AppError> {
     let index = state.read().map_err(|e| AppError::VaultNotFound(e.to_string()))?;
     Ok(indexer::compute_top_god_nodes(&index, limit))
+}
+
+#[tauri::command]
+pub fn get_cluster_summary(state: State<'_, VaultState>) -> Result<ClusterSummary, AppError> {
+    let index = state.read().map_err(|e| AppError::VaultNotFound(e.to_string()))?;
+    Ok(indexer::compute_clusters(&index))
 }
 
 #[tauri::command]

@@ -61,6 +61,20 @@ export interface GodNode {
   backlink_count: number;
 }
 
+export interface ClusterInfo {
+  id: number;
+  size: number;
+  representative_path: string;
+  representative_title: string;
+}
+
+export interface ClusterSummary {
+  cluster_count: number;
+  largest_size: number;
+  isolated_count: number;
+  clusters: ClusterInfo[];
+}
+
 export interface GraphEdge {
   source: string;
   target: string;

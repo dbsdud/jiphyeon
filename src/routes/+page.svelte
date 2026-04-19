@@ -6,6 +6,7 @@
     getClaudeTools,
     getVaultStatus,
     getTopGodNodes,
+    getClusterSummary,
   } from "$lib/api";
   import type {
     VaultStats,
@@ -13,6 +14,7 @@
     TagInfo,
     ClaudeTools,
     GodNode,
+    ClusterSummary,
   } from "$lib/types";
   import AuditSummary from "$lib/components/AuditSummary.svelte";
   import TagHeatmap from "$lib/components/TagHeatmap.svelte";
@@ -23,6 +25,7 @@
   let tags = $state<TagInfo[]>([]);
   let claudeTools = $state<ClaudeTools | null>(null);
   let godNodes = $state<GodNode[]>([]);
+  let clusters = $state<ClusterSummary | null>(null);
   let vaultName = $state("");
   let error = $state("");
 
@@ -35,13 +38,14 @@
 
   async function load() {
     try {
-      const [s, r, t, c, v, g] = await Promise.all([
+      const [s, r, t, c, v, g, cs] = await Promise.all([
         getVaultStats(),
         getRecentNotes(10),
         getTagList(),
         getClaudeTools().catch(() => null),
         getVaultStatus().catch(() => null),
         getTopGodNodes(5).catch(() => []),
+        getClusterSummary().catch(() => null),
       ]);
       stats = s;
       recentNotes = r;
@@ -49,6 +53,7 @@
       claudeTools = c;
       vaultName = deriveName(v?.vault_path ?? null);
       godNodes = g;
+      clusters = cs;
     } catch (e) {
       error = String(e);
     }
@@ -58,6 +63,12 @@
     vaultRefresh.version; // 볼트 변경 시 자동 재로드
     load();
   });
+
+  const largestPercent = $derived(
+    clusters && stats && stats.total_notes > 0
+      ? Math.round((clusters.largest_size / stats.total_notes) * 100)
+      : 0,
+  );
 
   function formatDate(timestamp: number): string {
     if (!timestamp) return "";
@@ -156,6 +167,41 @@
       {:else}
         <p class="text-xs text-fg-muted px-4 pb-4">
           아직 핵심 노트가 없습니다. 노트 간 링크를 추가하면 여기에 표시됩니다.
+        </p>
+      {/if}
+    </div>
+
+    <!-- Clusters -->
+    <div class="bg-surface-1 rounded-lg border border-border mb-6">
+      <h3 class="text-sm font-medium text-fg-muted px-4 pt-4 pb-2">Clusters</h3>
+      {#if clusters && clusters.cluster_count > 0}
+        <p class="text-xs text-fg-muted px-4 pb-2">
+          클러스터 {clusters.cluster_count}개 · 최대 {clusters.largest_size}개({largestPercent}%) · 고립 {clusters.isolated_count}개
+        </p>
+        <div class="divide-y divide-border">
+          {#each clusters.clusters.slice(0, 3) as cluster}
+            <a
+              href="/view?path={encodeURIComponent(cluster.representative_path)}"
+              class="flex items-center justify-between px-4 py-2.5 hover:bg-surface-2 transition-colors"
+            >
+              <div class="flex items-center gap-3 min-w-0">
+                <span class="text-fg-muted shrink-0">🌐</span>
+                <span class="text-sm truncate">{cluster.representative_title}</span>
+              </div>
+              <span class="text-xs text-fg-muted shrink-0 ml-3">
+                {cluster.size} notes
+              </span>
+            </a>
+          {/each}
+        </div>
+        <div class="px-4 py-2 text-right">
+          <a href="/graph" class="text-xs text-accent hover:underline">
+            그래프 보기 →
+          </a>
+        </div>
+      {:else}
+        <p class="text-xs text-fg-muted px-4 pb-4">
+          아직 연결된 노트 그룹이 없습니다.
         </p>
       {/if}
     </div>
