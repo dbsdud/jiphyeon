@@ -6,3 +6,4 @@ pub mod settings;
 pub mod claude_tools;
 pub mod vaults;
 pub mod rescaffold;
+pub mod transcribe;

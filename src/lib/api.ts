@@ -147,3 +147,11 @@ export function rescaffoldActiveVault(
 ): Promise<RescaffoldReport> {
   return invoke("rescaffold_active_vault", { mode, dryRun });
 }
+
+export function saveRecording(filename: string, bytes: Uint8Array): Promise<string> {
+  return invoke("save_recording", { filename, bytes: Array.from(bytes) });
+}
+
+export function deleteRecording(filename: string): Promise<void> {
+  return invoke("delete_recording", { filename });
+}

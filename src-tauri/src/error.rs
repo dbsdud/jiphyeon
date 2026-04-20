@@ -29,6 +29,18 @@ pub enum AppError {
 
     #[error("검색 오류: {0}")]
     Search(String),
+
+    #[error("유효하지 않은 파일 경로: {0}")]
+    InvalidPath(String),
+
+    #[error("지원하지 않는 확장자: {0}")]
+    InvalidExtension(String),
+
+    #[error("녹음 데이터가 비어 있음")]
+    EmptyRecording,
+
+    #[error("파일이 이미 존재합니다: {0}")]
+    FileExists(String),
 }
 
 impl serde::Serialize for AppError {

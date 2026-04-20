@@ -137,6 +137,8 @@ pub fn run() {
             commands::vaults::switch_vault,
             commands::vaults::remove_vault,
             commands::rescaffold::rescaffold_active_vault,
+            commands::transcribe::save_recording,
+            commands::transcribe::delete_recording,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

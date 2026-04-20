@@ -63,12 +63,7 @@
       title: "작업",
       items: [
         { action: "clip", label: "Clip", icon: "✂️" },
-        {
-          label: "Transcribe",
-          icon: "🎙️",
-          disabled: true,
-          disabledReason: "Epic 3에서 제공 예정",
-        },
+        { href: "/transcribe", label: "Transcribe", icon: "🎙️" },
       ],
     },
     {
