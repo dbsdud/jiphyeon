@@ -53,6 +53,11 @@ pub(crate) fn vault_files() -> Vec<(&'static str, &'static str)> {
         tpl!("_moc/Topics.md"),
         tpl!("_moc/Projects.md"),
         tpl!("_moc/Timeline.md"),
+        // 시작용 샘플 노트 (그래프/백링크 데모)
+        tpl!("dev/rust-ownership.md"),
+        tpl!("readings/building-a-second-brain.md"),
+        tpl!("decisions/2026-04-21-markdown-vault-stack.md"),
+        tpl!("ideas/seedling-llm-wiki.md"),
         // 노트 템플릿
         tpl!("_templates/tpl-artifact.md"),
         tpl!("_templates/tpl-clipping.md"),
