@@ -1,6 +1,6 @@
 [package]
 name = "jiphyeon"
-version = "0.8.0"
+version = "0.9.0"
 description = "집현 — 마크다운 볼트 대시보드"
 authors = ["you"]
 edition = "2021"
