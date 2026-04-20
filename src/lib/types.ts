@@ -55,6 +55,13 @@ export interface GraphNode {
   tags: string[];
 }
 
+export interface RecordingEntry {
+  filename: string;
+  size: number;
+  modified_at: number;
+  transcribed: boolean;
+}
+
 export interface GodNode {
   path: string;
   title: string;
