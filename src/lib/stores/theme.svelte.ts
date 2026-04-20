@@ -101,3 +101,52 @@ class SidebarStore {
 }
 
 export const sidebarStore = new SidebarStore();
+
+/**
+ * Slice 4.1 — Explore 폴더 트리 접힘/펼침 상태.
+ * spec: docs/plans/v1.0-mvp-roadmap.md (Epic 4)
+ * localStorage에 펼쳐진 폴더 경로 Set을 JSON 배열로 저장.
+ */
+const EXPLORE_EXPANDED_KEY = "explore-expanded";
+
+function loadExploreExpanded(): Set<string> {
+  if (typeof localStorage === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(EXPLORE_EXPANDED_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? new Set(arr.filter((x) => typeof x === "string")) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveExploreExpanded(set: Set<string>): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(EXPLORE_EXPANDED_KEY, JSON.stringify([...set]));
+  } catch {
+    /* 비활성 환경 무시 */
+  }
+}
+
+class ExploreStore {
+  expanded = $state<Set<string>>(loadExploreExpanded());
+
+  has(path: string): boolean {
+    return this.expanded.has(path);
+  }
+
+  toggle(path: string): void {
+    const next = new Set(this.expanded);
+    if (next.has(path)) {
+      next.delete(path);
+    } else {
+      next.add(path);
+    }
+    this.expanded = next;
+    saveExploreExpanded(next);
+  }
+}
+
+export const exploreStore = new ExploreStore();
