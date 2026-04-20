@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SessionStart hook: 볼트 건강 스냅샷 (경량)
-set -euo pipefail
+# pipefail 일부러 제외 — grep 매치 0건(exit 1)이 파이프라인 전체를 죽이면 안 됨.
+set -eu
 
 # shellcheck source=./_notify.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_notify.sh"

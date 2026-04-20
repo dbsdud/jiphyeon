@@ -24,6 +24,14 @@
             "command": "bash .claude/hooks/review-reminder.sh"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-pending-recordings.sh"
+          }
+        ]
       }
     ],
     "PreToolUse": [

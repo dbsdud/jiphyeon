@@ -19,6 +19,7 @@ import type {
   VaultEntry,
   RescaffoldMode,
   RescaffoldReport,
+  RecordingEntry,
 } from "./types";
 
 export function getVaultStats(): Promise<VaultStats> {
@@ -154,4 +155,8 @@ export function saveRecording(filename: string, bytes: Uint8Array): Promise<stri
 
 export function deleteRecording(filename: string): Promise<void> {
   return invoke("delete_recording", { filename });
+}
+
+export function listRecordings(): Promise<RecordingEntry[]> {
+  return invoke("list_recordings");
 }

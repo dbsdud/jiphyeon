@@ -33,6 +33,8 @@ pub(crate) const VAULT_DIRECTORIES: &[&str] = &[
     "_moc",
     "_templates",
     "_maintenance",
+    "_sources/recordings",
+    "_sources/transcripts",
 ];
 
 /// (상대 경로, 내용) 튜플로 생성할 파일 목록
@@ -76,6 +78,7 @@ pub(crate) fn vault_files() -> Vec<(&'static str, &'static str)> {
         tpl!(".claude/hooks/session-activity-log.sh"),
         tpl!(".claude/hooks/validate-frontmatter.sh"),
         tpl!(".claude/hooks/vault-health-snapshot.sh"),
+        tpl!(".claude/hooks/check-pending-recordings.sh"),
         // Claude Code skills
         tpl!(".claude/skills/vault-archive/SKILL.md"),
         tpl!(".claude/skills/vault-audit/SKILL.md"),
@@ -91,6 +94,7 @@ pub(crate) fn vault_files() -> Vec<(&'static str, &'static str)> {
         tpl!(".claude/skills/vault-search/SKILL.md"),
         tpl!(".claude/skills/vault-synthesize/SKILL.md"),
         tpl!(".claude/skills/vault-tags/SKILL.md"),
+        tpl!(".claude/skills/vault-transcribe/SKILL.md"),
     ]
 }
 

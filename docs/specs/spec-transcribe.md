@@ -103,12 +103,12 @@ export function buildFilename(now: Date, sequence: number, ext: string): string;
 
 #### `src-tauri/templates/vault/.claude/hooks/check-pending-recordings.sh`
 
-SessionStart 훅. 미전사 녹음 탐지 → stderr로 알림:
+SessionStart 훅. 미전사 녹음 탐지 → stdout으로 알림:
 - `_sources/recordings/` 순회
 - 각 파일의 stem이 `_sources/transcripts/<stem>.md`로 존재하지 않으면 pending
 - 0개면 silent exit
-- 1개 이상이면 `stderr`로 "📼 미전사 녹음 N개 있음. `/vault-transcribe`로 처리 가능." 출력
-- `|| true`로 훅 실패가 세션 시작을 막지 않음
+- 1개 이상이면 `stdout`으로 "📼 미전사 녹음 N개 있음. `/vault-transcribe`로 처리 가능." 출력 (Claude Code는 SessionStart 훅의 stdout을 컨텍스트에 주입)
+- `exit 0`로 훅 실패가 세션 시작을 막지 않음
 
 #### `src-tauri/templates/vault/.claude/settings.json`
 
@@ -176,7 +176,7 @@ SessionStart 훅. 미전사 녹음 탐지 → stderr로 알림:
 | 23 | 여러 오디오 파일 동시 붙여넣기 | paste | 각각 순차 저장 |
 | 24 | rescaffold mode="add-missing" 실행 | rescaffold | `skills/vault-transcribe/SKILL.md`, `hooks/check-pending-recordings.sh`, `settings.json` 갱신 모두 포함 |
 | 25 | 사용자 커스텀 `settings.json` 있는 볼트에 rescaffold | rescaffold | 기존 훅 보존 + SessionStart 배열에 pending-recordings 항목 머지 (중복 추가 방지) |
-| 26 | `_sources/recordings/`에 미전사 파일 2개 있는 볼트에서 `claude` 세션 시작 | SessionStart | 훅이 "📼 미전사 녹음 2개 있음. `/vault-transcribe`로 처리 가능." stderr 출력 |
+| 26 | `_sources/recordings/`에 미전사 파일 2개 있는 볼트에서 `claude` 세션 시작 | SessionStart | 훅이 "📼 미전사 녹음 2개 있음. `/vault-transcribe`로 처리 가능." stdout 출력 (Claude 컨텍스트 주입) |
 | 27 | 모든 녹음이 이미 transcript 보유 | SessionStart | 훅이 silent exit (출력 없음) |
 | 28 | `_sources/recordings/` 디렉토리 부재 | SessionStart | 훅이 정상 exit 0 (에러 없음) |
 | 29 | `/vault-transcribe` 호출 | Claude 실행 | 스킬 절차대로 whisper base 모델로 전사 + `_sources/transcripts/<stem>.md` 생성 (frontmatter + 요약 + 원문 + 링크) |

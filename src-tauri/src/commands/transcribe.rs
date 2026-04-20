@@ -1,13 +1,24 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::UNIX_EPOCH;
 
+use serde::Serialize;
 use tauri::State;
 
 use crate::config::ConfigState;
 use crate::error::AppError;
 
-const ALLOWED_EXTENSIONS: &[&str] = &["m4a", "webm", "ogg"];
+const ALLOWED_EXTENSIONS: &[&str] = &["m4a", "webm", "ogg", "wav", "mp3"];
 const RECORDINGS_SUBDIR: &str = "_sources/recordings";
+const TRANSCRIPTS_SUBDIR: &str = "_sources/transcripts";
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct RecordingEntry {
+    pub filename: String,
+    pub size: u64,
+    pub modified_at: i64,
+    pub transcribed: bool,
+}
 
 /// 파일명 유효성 검증. 상위 경로·구분자·잘못된 확장자를 거부.
 fn validate_filename(filename: &str) -> Result<(), AppError> {
@@ -48,6 +59,59 @@ pub fn save_recording_impl(
     }
     fs::write(&target, bytes)?;
     Ok(target)
+}
+
+/// `_sources/recordings/`의 오디오 파일을 나열하고 각 파일의 transcript 유무를 표시.
+/// - 녹음 디렉토리가 없으면 빈 Vec
+/// - 허용 확장자(m4a/webm/ogg/wav/mp3)만 포함
+/// - 정렬: modified_at 내림차순
+pub fn list_recordings_impl(vault_path: &Path) -> Result<Vec<RecordingEntry>, AppError> {
+    let rec_dir = vault_path.join(RECORDINGS_SUBDIR);
+    if !rec_dir.is_dir() {
+        return Ok(Vec::new());
+    }
+    let tx_dir = vault_path.join(TRANSCRIPTS_SUBDIR);
+
+    let mut entries: Vec<RecordingEntry> = Vec::new();
+    for entry in fs::read_dir(&rec_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|s| s.to_ascii_lowercase())
+            .unwrap_or_default();
+        if !ALLOWED_EXTENSIONS.contains(&ext.as_str()) {
+            continue;
+        }
+        let Some(filename) = path.file_name().and_then(|n| n.to_str()).map(String::from)
+        else {
+            continue;
+        };
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
+        let meta = entry.metadata()?;
+        let modified = meta
+            .modified()
+            .ok()
+            .and_then(|m| m.duration_since(UNIX_EPOCH).ok())
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        let transcribed = tx_dir.join(format!("{stem}.md")).exists();
+        entries.push(RecordingEntry {
+            filename,
+            size: meta.len(),
+            modified_at: modified,
+            transcribed,
+        });
+    }
+    entries.sort_by(|a, b| b.modified_at.cmp(&a.modified_at));
+    Ok(entries)
 }
 
 /// `_sources/recordings/<filename>` 삭제. 파일명 유효성 재검증으로 path traversal 방지.
@@ -91,6 +155,20 @@ pub fn delete_recording(
         .as_ref()
         .ok_or(AppError::VaultNotConfigured)?;
     delete_recording_impl(vault_path, &filename)
+}
+
+#[tauri::command]
+pub fn list_recordings(
+    config_state: State<'_, ConfigState>,
+) -> Result<Vec<RecordingEntry>, AppError> {
+    let config = config_state
+        .read()
+        .map_err(|e| AppError::VaultNotFound(e.to_string()))?;
+    let vault_path = config
+        .vault_path
+        .as_ref()
+        .ok_or(AppError::VaultNotConfigured)?;
+    list_recordings_impl(vault_path)
 }
 
 #[cfg(test)]
@@ -185,5 +263,70 @@ mod tests {
         let dir = tempdir().unwrap();
         let result = delete_recording_impl(dir.path(), "ghost.m4a");
         assert!(matches!(result, Err(AppError::NoteNotFound(_))));
+    }
+
+    #[test]
+    fn list_recordings_returns_empty_when_dir_absent() {
+        let dir = tempdir().unwrap();
+        let result = list_recordings_impl(dir.path()).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn list_recordings_returns_empty_for_empty_dir() {
+        let dir = tempdir().unwrap();
+        fs::create_dir_all(dir.path().join(RECORDINGS_SUBDIR)).unwrap();
+        let result = list_recordings_impl(dir.path()).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn list_recordings_marks_missing_transcript() {
+        let dir = tempdir().unwrap();
+        save_recording_impl(dir.path(), "a.m4a", &sample_bytes()).unwrap();
+        let result = list_recordings_impl(dir.path()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].filename, "a.m4a");
+        assert!(!result[0].transcribed);
+        assert!(result[0].size > 0);
+    }
+
+    #[test]
+    fn list_recordings_marks_present_transcript() {
+        let dir = tempdir().unwrap();
+        save_recording_impl(dir.path(), "a.m4a", &sample_bytes()).unwrap();
+        let tx_dir = dir.path().join(TRANSCRIPTS_SUBDIR);
+        fs::create_dir_all(&tx_dir).unwrap();
+        fs::write(tx_dir.join("a.md"), b"# transcript").unwrap();
+        let result = list_recordings_impl(dir.path()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result[0].transcribed);
+    }
+
+    #[test]
+    fn list_recordings_ignores_non_audio_files() {
+        let dir = tempdir().unwrap();
+        let rec_dir = dir.path().join(RECORDINGS_SUBDIR);
+        fs::create_dir_all(&rec_dir).unwrap();
+        fs::write(rec_dir.join("a.m4a"), b"audio").unwrap();
+        fs::write(rec_dir.join("note.md"), b"text").unwrap();
+        fs::write(rec_dir.join(".DS_Store"), b"meta").unwrap();
+        let result = list_recordings_impl(dir.path()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].filename, "a.m4a");
+    }
+
+    #[test]
+    fn list_recordings_sorted_by_modified_desc() {
+        use std::thread::sleep;
+        use std::time::Duration;
+        let dir = tempdir().unwrap();
+        save_recording_impl(dir.path(), "old.m4a", &sample_bytes()).unwrap();
+        sleep(Duration::from_millis(1100));
+        save_recording_impl(dir.path(), "new.m4a", &sample_bytes()).unwrap();
+        let result = list_recordings_impl(dir.path()).unwrap();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].filename, "new.m4a");
+        assert_eq!(result[1].filename, "old.m4a");
     }
 }
