@@ -110,24 +110,53 @@ Jiphyeon은 세 개의 층으로 움직인다.
 
 ---
 
-## 시작하기
+## 설치 (사용자)
+
+1. [Releases 페이지](https://github.com/dbsdud/jiphyeon/releases)에서 본인 플랫폼의 패키지를 받는다.
+   - **macOS**: `Jiphyeon_<버전>_aarch64.dmg` (Apple Silicon) 또는 `..._x64.dmg` (Intel)
+   - Windows/Linux 빌드는 v1.0 이후 제공 예정
+2. `.dmg`를 열고 `Jiphyeon.app`을 `Applications`로 드래그.
+3. 최초 실행 시 macOS가 "확인되지 않은 개발자" 경고를 띄우면 **우측 클릭 → 열기**로 한 번만 허용 (초기 MVP는 Apple Developer 사이닝 없이 배포).
+4. 첫 실행 화면에서 **새 볼트 만들기** 또는 **기존 볼트 연결**. 새 볼트에는 샘플 노트 4개와 14개 Claude 스킬 · 12개 훅이 함께 설치된다.
+5. 볼트 경로에서 `claude` 명령을 실행하면 집현전 세션이 열리고, `/vault-new`로 첫 노트를 만들 수 있다.
+
+## 개발자 시작하기
 
 ```bash
-# 개발 서버
+# 의존성 설치 + 개발 서버
 npm install
 npm run tauri dev
 
-# 프로덕션 빌드
+# 운영 빌드 (호스트 OS 타깃)
 npm run tauri build
+# → src-tauri/target/release/bundle/ 아래 .dmg / .msi / .deb 생성
 
-# Rust 테스트
+# Rust 테스트 (291건)
 cargo test --manifest-path src-tauri/Cargo.toml --lib
+
+# 프론트엔드 타입 체크
+npm run check
 ```
 
-첫 실행 시 온보딩 화면에서 볼트를 선택하거나 새로 생성할 수 있다.
-새 볼트를 만들면 `.claude/` 디렉토리에 스킬·훅·CLAUDE.md가 함께 설치된다.
+**요구 사항**:
+- Node.js 18+, Rust 1.75+, 플랫폼별 Tauri 전제조건([docs](https://v2.tauri.app/start/prerequisites/))
+- macOS: Xcode Command Line Tools
+- `openai-whisper` (`pip install -U openai-whisper`) — 녹음 전사 기능(`/vault-transcribe`)을 쓰려면 필요
 
-볼트 경로에서 `claude` 명령을 실행하면 집현전이 열린다.
+**배포** (유지관리자):
+1. `cargo test` + `npm run check` 통과 확인
+2. `package.json` / `src-tauri/Cargo.toml` / `src-tauri/tauri.conf.json` / `src/routes/+layout.svelte` 버전 bump
+3. `CHANGELOG.md`의 `[Unreleased]` 섹션을 새 버전으로 확정
+4. 태그 + GitHub Release:
+   ```bash
+   git tag -a v1.0.0 -m "v1.0.0"
+   git push origin v1.0.0
+   gh release create v1.0.0 \
+     --title "v1.0.0" \
+     --notes-file CHANGELOG.md \
+     src-tauri/target/release/bundle/dmg/*.dmg
+   ```
+5. 자동화는 `.github/workflows/`에 [`tauri-apps/tauri-action`](https://github.com/tauri-apps/tauri-action) 추가 — v1.0 이후 옵션
 
 ---
 
