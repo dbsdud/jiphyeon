@@ -5,31 +5,6 @@ export interface Frontmatter {
   status?: string;
 }
 
-export interface NoteEntry {
-  path: string;
-  title: string;
-  frontmatter?: Frontmatter;
-  outgoing_links: string[];
-  modified_at: number;
-  size: number;
-}
-
-export interface VaultStats {
-  total_notes: number;
-  by_type: Record<string, number>;
-  by_status: Record<string, number>;
-  by_folder: Record<string, number>;
-  total_links: number;
-  total_tags: number;
-  orphan_notes: number;
-  broken_links: string[];
-}
-
-export interface TagInfo {
-  name: string;
-  count: number;
-}
-
 export interface BacklinkEntry {
   path: string;
   title: string;
@@ -46,6 +21,14 @@ export interface RenderedNote {
   backlinks: BacklinkEntry[];
 }
 
+export interface RecordingEntry {
+  filename: string;
+  size: number;
+  modified_at: number;
+}
+
+// Epic B-3 (FolderTree)·C-5 (LinkGraph) 재활용 대기 타입.
+// Rust 백엔드의 대응 구조체는 Epic 진입 시 graphify 노드 기반으로 재작성 예정.
 export interface GraphNode {
   id: string;
   path: string;
@@ -53,34 +36,6 @@ export interface GraphNode {
   note_type?: string;
   link_count: number;
   tags: string[];
-}
-
-export interface RecordingEntry {
-  filename: string;
-  size: number;
-  modified_at: number;
-  transcribed: boolean;
-}
-
-export interface GodNode {
-  path: string;
-  title: string;
-  note_type?: string;
-  backlink_count: number;
-}
-
-export interface ClusterInfo {
-  id: number;
-  size: number;
-  representative_path: string;
-  representative_title: string;
-}
-
-export interface ClusterSummary {
-  cluster_count: number;
-  largest_size: number;
-  isolated_count: number;
-  clusters: ClusterInfo[];
 }
 
 export interface GraphEdge {
@@ -98,15 +53,6 @@ export interface FolderNode {
   path: string;
   note_count: number;
   children: FolderNode[];
-}
-
-export interface SearchResult {
-  path: string;
-  title: string;
-  frontmatter?: Frontmatter;
-  modified_at: number;
-  snippet?: string;
-  match_field: string;
 }
 
 export interface ClipRequest {
@@ -156,45 +102,9 @@ export interface DetectedEditor {
   command: string;
 }
 
-export interface ClaudeSkill {
-  name: string;
-  description: string;
-  path: string;
-}
-
-export interface ClaudeHook {
-  event: string;
-  matcher: string | null;
-  command: string;
-  script_path: string | null;
-}
-
-export interface SkillWarning {
-  path: string;
-  reason: string;
-}
-
-export interface ClaudeTools {
-  claude_md: string | null;
-  skills: ClaudeSkill[];
-  skill_warnings: SkillWarning[];
-  hooks: ClaudeHook[];
-  hooks_error: string | null;
-}
-
 export interface VaultEntry {
   path: string;
   name: string;
-}
-
-export type RescaffoldMode = "add-missing" | "force-claude";
-
-export interface RescaffoldReport {
-  created: string[];
-  overwritten: string[];
-  modified_by_user: string[];
-  unchanged: number;
-  dry_run: boolean;
 }
 
 export type NotificationLevel = "info" | "warn" | "error" | "success";

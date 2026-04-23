@@ -15,7 +15,6 @@
     removeVault,
     getConfig,
     updateConfig,
-    rescanVault,
     type VaultStatus,
   } from "$lib/api";
   import type {
@@ -69,7 +68,6 @@
     {
       title: "설정",
       items: [
-        { href: "/claude", label: "Claude", icon: "🤖" },
         { href: "/settings", label: "Settings", icon: "⚙️" },
       ],
     },
@@ -84,21 +82,6 @@
   let unlistenNotification: UnlistenFn | null = null;
   let unlistenVaultChanged: UnlistenFn | null = null;
   let unwatchSystemTheme: (() => void) | null = null;
-  let rescanTimer: ReturnType<typeof setTimeout> | null = null;
-
-  // 볼트 변경 이벤트는 편집 중 여러 번 올 수 있으므로 프론트에서도 debounce.
-  function scheduleRescan() {
-    if (rescanTimer) clearTimeout(rescanTimer);
-    rescanTimer = setTimeout(async () => {
-      rescanTimer = null;
-      try {
-        await rescanVault();
-        vaultRefresh.bump();
-      } catch (err) {
-        console.warn("rescan_vault 실패", err);
-      }
-    }, 300);
-  }
 
   onMount(async () => {
     try {
@@ -130,7 +113,7 @@
 
     try {
       unlistenVaultChanged = await listen("vault-changed", () => {
-        scheduleRescan();
+        vaultRefresh.bump();
       });
     } catch (err) {
       console.error("vault-changed listener 등록 실패", err);
@@ -141,7 +124,6 @@
     unlistenNotification?.();
     unlistenVaultChanged?.();
     unwatchSystemTheme?.();
-    if (rescanTimer) clearTimeout(rescanTimer);
   });
 
   let vaultStatus = $state<VaultStatus | null>(null);

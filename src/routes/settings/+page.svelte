@@ -1,17 +1,10 @@
 <script lang="ts">
-  import {
-    getConfig,
-    updateConfig,
-    detectEditors,
-    rescaffoldActiveVault,
-  } from "$lib/api";
+  import { getConfig, updateConfig, detectEditors } from "$lib/api";
   import type {
     AppConfig,
     AppConfigPatch,
     Density,
     DetectedEditor,
-    RescaffoldMode,
-    RescaffoldReport,
     ThemePreference,
   } from "$lib/types";
   import { applyTheme, themeRefresh, themePref } from "$lib/stores/theme.svelte";
@@ -23,7 +16,6 @@
   let error = $state("");
   let savedMessage = $state("");
 
-  // 폼 필드 (config 로드 후 초기화)
   let editorCommand = $state("");
   let excludeDirsInput = $state("");
   let recentNotesLimit = $state(20);
@@ -31,13 +23,6 @@
   let quickNoteFolder = $state("");
   let density = $state<Density>("regular");
   let theme = $state<ThemePreference>("system");
-
-  // 볼트 업데이트(재스캐폴드) 상태
-  let rescaffoldMode = $state<RescaffoldMode>("add-missing");
-  let rescaffoldReport = $state<RescaffoldReport | null>(null);
-  let rescaffoldBusy = $state(false);
-  let rescaffoldError = $state("");
-  let rescaffoldMessage = $state("");
 
   async function load() {
     loading = true;
@@ -111,43 +96,6 @@
       saving = false;
     }
   }
-
-  async function previewRescaffold() {
-    rescaffoldBusy = true;
-    rescaffoldError = "";
-    rescaffoldMessage = "";
-    try {
-      rescaffoldReport = await rescaffoldActiveVault(rescaffoldMode, true);
-    } catch (e) {
-      rescaffoldError = String(e);
-      rescaffoldReport = null;
-    } finally {
-      rescaffoldBusy = false;
-    }
-  }
-
-  async function applyRescaffold() {
-    if (!rescaffoldReport) return;
-    rescaffoldBusy = true;
-    rescaffoldError = "";
-    rescaffoldMessage = "";
-    try {
-      rescaffoldReport = await rescaffoldActiveVault(rescaffoldMode, false);
-      const { created, overwritten, unchanged } = rescaffoldReport;
-      rescaffoldMessage = `적용 완료: 생성 ${created.length}개 / 덮어쓰기 ${overwritten.length}개 / 변경 없음 ${unchanged}개`;
-    } catch (e) {
-      rescaffoldError = String(e);
-    } finally {
-      rescaffoldBusy = false;
-    }
-  }
-
-  function onModeChange() {
-    // 모드 바꾸면 기존 미리보기는 무효
-    rescaffoldReport = null;
-    rescaffoldMessage = "";
-    rescaffoldError = "";
-  }
 </script>
 
 <div class="p-6 max-w-3xl">
@@ -161,7 +109,6 @@
     </div>
   {:else}
     <div class="space-y-6">
-      <!-- Vault (read-only 표시; 관리는 사이드바에서) -->
       <section class="bg-surface-1 border border-border rounded-xl p-5">
         <h3 class="text-sm font-semibold text-fg mb-3">볼트</h3>
 
@@ -175,7 +122,6 @@
         </p>
       </section>
 
-      <!-- Display / Density / Theme -->
       <section class="bg-surface-1 border border-border rounded-xl p-5">
         <h3 class="text-sm font-semibold text-fg mb-3">디스플레이</h3>
 
@@ -261,7 +207,6 @@
         </div>
       </section>
 
-      <!-- Editor -->
       <section class="bg-surface-1 border border-border rounded-xl p-5">
         <div class="flex items-center justify-between mb-3">
           <h3 class="text-sm font-semibold text-fg">외부 에디터</h3>
@@ -309,7 +254,6 @@
         />
       </section>
 
-      <!-- Indexing -->
       <section class="bg-surface-1 border border-border rounded-xl p-5">
         <h3 class="text-sm font-semibold text-fg mb-3">인덱싱</h3>
 
@@ -340,7 +284,6 @@
         />
       </section>
 
-      <!-- Quick Note -->
       <section class="bg-surface-1 border border-border rounded-xl p-5">
         <h3 class="text-sm font-semibold text-fg mb-3">퀵 노트</h3>
 
@@ -367,7 +310,6 @@
         />
       </section>
 
-      <!-- Save -->
       <div class="flex items-center gap-3">
         <button
           class="text-sm px-5 py-2 rounded bg-accent text-accent-fg
@@ -387,142 +329,6 @@
           <span class="text-sm text-danger">{error}</span>
         {/if}
       </div>
-
-      <!-- Vault Update (Rescaffold) -->
-      <section class="bg-surface-1 border border-border rounded-xl p-5">
-        <h3 class="text-sm font-semibold text-fg mb-2">🛠️ 볼트 업데이트</h3>
-        <p class="text-xs text-fg-muted mb-4">
-          앱 릴리즈마다 포함되는 <span class="font-mono">.claude/</span> 템플릿(훅·스킬·settings)을
-          이 볼트에 반영합니다. 사용자 자산(<span class="font-mono">_moc/</span>,
-          <span class="font-mono">_templates/</span>, 노트 파일)은 건드리지 않습니다.
-        </p>
-
-        <div class="space-y-2 mb-4">
-          <label class="flex items-start gap-2 text-sm cursor-pointer">
-            <input
-              type="radio"
-              name="rescaffoldMode"
-              value="add-missing"
-              bind:group={rescaffoldMode}
-              onchange={onModeChange}
-              class="mt-0.5"
-            />
-            <span class="flex-1">
-              <span class="text-fg">누락된 파일만 채우기 (안전)</span>
-              <span class="block text-xs text-fg-muted">
-                없는 파일만 생성합니다. 기존 파일은 내용이 달라도 그대로 둡니다.
-              </span>
-            </span>
-          </label>
-          <label class="flex items-start gap-2 text-sm cursor-pointer">
-            <input
-              type="radio"
-              name="rescaffoldMode"
-              value="force-claude"
-              bind:group={rescaffoldMode}
-              onchange={onModeChange}
-              class="mt-0.5"
-            />
-            <span class="flex-1">
-              <span class="text-warning">⚠️ <span class="font-mono">.claude/</span> 강제 업데이트</span>
-              <span class="block text-xs text-fg-muted">
-                <span class="font-mono">.claude/</span> 하위에서 템플릿과 다른 파일을 덮어씁니다.
-                사용자가 수정한 파일은 적용 전에 미리보기로 확인할 수 있습니다.
-              </span>
-            </span>
-          </label>
-        </div>
-
-        <div class="flex items-center gap-2 mb-3">
-          <button
-            class="text-sm px-4 py-1.5 rounded border border-border text-fg
-                   hover:border-accent transition-colors
-                   disabled:opacity-50 disabled:cursor-not-allowed"
-            onclick={previewRescaffold}
-            disabled={rescaffoldBusy}
-          >
-            {rescaffoldBusy && !rescaffoldReport ? "확인 중..." : "미리보기"}
-          </button>
-          <button
-            class="text-sm px-4 py-1.5 rounded bg-accent text-accent-fg
-                   hover:bg-accent/80 transition-colors
-                   disabled:opacity-40 disabled:cursor-not-allowed"
-            onclick={applyRescaffold}
-            disabled={rescaffoldBusy || !rescaffoldReport || !rescaffoldReport.dry_run}
-            title={!rescaffoldReport ? "먼저 미리보기를 실행하세요" : ""}
-          >
-            {rescaffoldBusy && rescaffoldReport ? "적용 중..." : "적용"}
-          </button>
-        </div>
-
-        {#if rescaffoldReport}
-          <div class="bg-surface-0 border border-border rounded-lg p-4 text-sm">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-fg font-medium">
-                {rescaffoldReport.dry_run ? "미리보기" : "적용 결과"}
-              </span>
-              <span class="text-xs text-fg-muted">
-                모드: <span class="font-mono">{rescaffoldMode}</span>
-              </span>
-            </div>
-
-            <ul class="space-y-1 text-xs">
-              <li>
-                <span class="text-success">✨ 새로 {rescaffoldReport.dry_run ? "생성될" : "생성된"} 파일</span>:
-                <span class="text-fg">{rescaffoldReport.created.length}개</span>
-              </li>
-              {#if rescaffoldReport.created.length > 0}
-                <li>
-                  <details class="ml-4">
-                    <summary class="cursor-pointer text-fg-muted hover:text-fg">목록 보기</summary>
-                    <ul class="mt-1 font-mono text-fg-muted space-y-0.5">
-                      {#each rescaffoldReport.created as p}
-                        <li>{p}</li>
-                      {/each}
-                    </ul>
-                  </details>
-                </li>
-              {/if}
-              <li>
-                <span class={rescaffoldReport.overwritten.length > 0 ? "text-warning" : "text-fg-muted"}>
-                  ⚠️ {rescaffoldReport.dry_run ? "덮어쓸" : "덮어쓴"} 파일
-                </span>:
-                <span class="text-fg">{rescaffoldReport.overwritten.length}개</span>
-                {#if rescaffoldReport.modified_by_user.length > 0}
-                  <span class="text-danger ml-1">
-                    (사용자 수정분 {rescaffoldReport.modified_by_user.length}개 포함)
-                  </span>
-                {/if}
-              </li>
-              {#if rescaffoldReport.overwritten.length > 0}
-                <li>
-                  <details class="ml-4">
-                    <summary class="cursor-pointer text-fg-muted hover:text-fg">목록 보기</summary>
-                    <ul class="mt-1 font-mono text-fg-muted space-y-0.5">
-                      {#each rescaffoldReport.overwritten as p}
-                        <li class={rescaffoldReport.modified_by_user.includes(p) ? "text-danger" : ""}>
-                          {rescaffoldReport.modified_by_user.includes(p) ? "⚠️ " : ""}{p}
-                        </li>
-                      {/each}
-                    </ul>
-                  </details>
-                </li>
-              {/if}
-              <li>
-                <span class="text-fg-muted">변경 없음</span>:
-                <span class="text-fg">{rescaffoldReport.unchanged}개</span>
-              </li>
-            </ul>
-          </div>
-        {/if}
-
-        {#if rescaffoldMessage}
-          <p class="mt-3 text-sm text-success">✓ {rescaffoldMessage}</p>
-        {/if}
-        {#if rescaffoldError}
-          <p class="mt-3 text-sm text-danger">{rescaffoldError}</p>
-        {/if}
-      </section>
     </div>
   {/if}
 </div>

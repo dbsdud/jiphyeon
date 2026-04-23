@@ -14,9 +14,6 @@ pub enum AppError {
     #[error("볼트가 연결되어 있지 않음")]
     VaultNotConfigured,
 
-    #[error("선택한 경로에 기존 파일/폴더가 있습니다: {0}")]
-    VaultDirectoryNotEmpty(String),
-
     #[error("노트를 찾을 수 없음: {0}")]
     NoteNotFound(String),
 
@@ -26,9 +23,6 @@ pub enum AppError {
     #[allow(dead_code)]
     #[error("HTML 파싱 실패: {0}")]
     HtmlParse(String),
-
-    #[error("검색 오류: {0}")]
-    Search(String),
 
     #[error("유효하지 않은 파일 경로: {0}")]
     InvalidPath(String),

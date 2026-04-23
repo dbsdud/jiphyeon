@@ -10,14 +10,12 @@ use crate::error::AppError;
 
 const ALLOWED_EXTENSIONS: &[&str] = &["m4a", "webm", "ogg", "wav", "mp3"];
 const RECORDINGS_SUBDIR: &str = "_sources/recordings";
-const TRANSCRIPTS_SUBDIR: &str = "_sources/transcripts";
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct RecordingEntry {
     pub filename: String,
     pub size: u64,
     pub modified_at: i64,
-    pub transcribed: bool,
 }
 
 /// 파일명 유효성 검증. 상위 경로·구분자·잘못된 확장자를 거부.
@@ -61,16 +59,12 @@ pub fn save_recording_impl(
     Ok(target)
 }
 
-/// `_sources/recordings/`의 오디오 파일을 나열하고 각 파일의 transcript 유무를 표시.
-/// - 녹음 디렉토리가 없으면 빈 Vec
-/// - 허용 확장자(m4a/webm/ogg/wav/mp3)만 포함
-/// - 정렬: modified_at 내림차순
+/// `_sources/recordings/`의 오디오 파일을 나열. modified_at 내림차순.
 pub fn list_recordings_impl(vault_path: &Path) -> Result<Vec<RecordingEntry>, AppError> {
     let rec_dir = vault_path.join(RECORDINGS_SUBDIR);
     if !rec_dir.is_dir() {
         return Ok(Vec::new());
     }
-    let tx_dir = vault_path.join(TRANSCRIPTS_SUBDIR);
 
     let mut entries: Vec<RecordingEntry> = Vec::new();
     for entry in fs::read_dir(&rec_dir)? {
@@ -91,10 +85,6 @@ pub fn list_recordings_impl(vault_path: &Path) -> Result<Vec<RecordingEntry>, Ap
         else {
             continue;
         };
-        let stem = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or_default();
         let meta = entry.metadata()?;
         let modified = meta
             .modified()
@@ -102,12 +92,10 @@ pub fn list_recordings_impl(vault_path: &Path) -> Result<Vec<RecordingEntry>, Ap
             .and_then(|m| m.duration_since(UNIX_EPOCH).ok())
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
-        let transcribed = tx_dir.join(format!("{stem}.md")).exists();
         entries.push(RecordingEntry {
             filename,
             size: meta.len(),
             modified_at: modified,
-            transcribed,
         });
     }
     entries.sort_by(|a, b| b.modified_at.cmp(&a.modified_at));
@@ -281,26 +269,13 @@ mod tests {
     }
 
     #[test]
-    fn list_recordings_marks_missing_transcript() {
+    fn list_recordings_returns_entry_for_audio_file() {
         let dir = tempdir().unwrap();
         save_recording_impl(dir.path(), "a.m4a", &sample_bytes()).unwrap();
         let result = list_recordings_impl(dir.path()).unwrap();
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].filename, "a.m4a");
-        assert!(!result[0].transcribed);
         assert!(result[0].size > 0);
-    }
-
-    #[test]
-    fn list_recordings_marks_present_transcript() {
-        let dir = tempdir().unwrap();
-        save_recording_impl(dir.path(), "a.m4a", &sample_bytes()).unwrap();
-        let tx_dir = dir.path().join(TRANSCRIPTS_SUBDIR);
-        fs::create_dir_all(&tx_dir).unwrap();
-        fs::write(tx_dir.join("a.md"), b"# transcript").unwrap();
-        let result = list_recordings_impl(dir.path()).unwrap();
-        assert_eq!(result.len(), 1);
-        assert!(result[0].transcribed);
     }
 
     #[test]

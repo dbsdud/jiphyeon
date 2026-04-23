@@ -136,27 +136,6 @@
         </div>
       </div>
     {/if}
-
-    <!-- Backlinks -->
-    {#if note.backlinks.length > 0}
-      <div class="border-t border-border pt-4">
-        <h3 class="text-sm font-medium text-fg-muted mb-2">Backlinks ({note.backlinks.length})</h3>
-        <div class="space-y-1">
-          {#each note.backlinks as bl}
-            <a
-              href="/view?path={encodeURIComponent(bl.path)}"
-              class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-surface-1 transition-colors"
-            >
-              <span class="text-sm text-accent">{bl.title}</span>
-              {#if bl.note_type}
-                <span class="text-xs text-fg-muted">{typeLabel(bl.note_type)}</span>
-              {/if}
-              <span class="text-xs text-fg-muted truncate">{bl.context}</span>
-            </a>
-          {/each}
-        </div>
-      </div>
-    {/if}
   {/if}
 </div>
 
