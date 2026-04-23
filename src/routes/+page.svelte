@@ -112,27 +112,6 @@
     {/if}
   </div>
 
-  {#if stats && stats.total_notes > 0 && stats.total_notes <= 6}
-    <div class="mb-6 bg-surface-1 rounded-lg border border-accent/40 p-5">
-      <h3 class="text-base font-medium mb-2">시작하기</h3>
-      <p class="text-sm text-fg-muted mb-3">
-        집현전은 Claude Code가 북키핑하는 PKM입니다.
-        사람은 읽고 사고하고, AI는 연결·요약·일관성을 맡습니다.
-      </p>
-      <ol class="text-sm space-y-1 mb-3 list-decimal pl-5">
-        <li>터미널에서 <code class="text-xs px-1 py-0.5 rounded bg-surface-2">cd &lt;볼트&gt; && claude</code> 실행</li>
-        <li>집현전 세션에서 <code class="text-xs px-1 py-0.5 rounded bg-surface-2">/vault-new</code>로 첫 노트 작성</li>
-        <li><code class="text-xs px-1 py-0.5 rounded bg-surface-2">/vault-link</code>로 기존 노트와 연결 제안</li>
-      </ol>
-      <div class="text-sm text-fg-muted">
-        샘플 노트 둘러보기 →
-        <a href="/explore" class="text-accent hover:underline">Explore</a>
-        ·
-        <a href="/graph" class="text-accent hover:underline">Graph</a>
-      </div>
-    </div>
-  {/if}
-
   {#if error}
     <div class="bg-danger/10 border border-danger/30 rounded-lg p-4 text-danger text-sm">
       {error}

@@ -17,8 +17,6 @@ import type {
   DetectedEditor,
   ClaudeTools,
   VaultEntry,
-  RescaffoldMode,
-  RescaffoldReport,
   RecordingEntry,
 } from "./types";
 
@@ -106,10 +104,6 @@ export function getVaultStatus(): Promise<VaultStatus> {
   return invoke("get_vault_status");
 }
 
-export function createVault(path: string): Promise<VaultStatus> {
-  return invoke("create_vault", { path });
-}
-
 export function connectVault(path: string): Promise<VaultStatus> {
   return invoke("connect_vault", { path });
 }
@@ -140,13 +134,6 @@ export function switchVault(path: string): Promise<VaultStatus> {
 
 export function removeVault(path: string): Promise<VaultEntry[]> {
   return invoke("remove_vault", { path });
-}
-
-export function rescaffoldActiveVault(
-  mode: RescaffoldMode,
-  dryRun: boolean,
-): Promise<RescaffoldReport> {
-  return invoke("rescaffold_active_vault", { mode, dryRun });
 }
 
 export function saveRecording(filename: string, bytes: Uint8Array): Promise<string> {

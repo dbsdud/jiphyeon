@@ -186,16 +186,6 @@ export interface VaultEntry {
   name: string;
 }
 
-export type RescaffoldMode = "add-missing" | "force-claude";
-
-export interface RescaffoldReport {
-  created: string[];
-  overwritten: string[];
-  modified_by_user: string[];
-  unchanged: number;
-  dry_run: boolean;
-}
-
 export type NotificationLevel = "info" | "warn" | "error" | "success";
 
 export interface NotificationEvent {
