@@ -143,7 +143,7 @@
   <div class="mb-6">
     <h2 class="text-xl font-semibold">Transcribe</h2>
     <p class="text-sm text-fg-muted mt-1">
-      볼트의 <code class="text-xs">_sources/recordings/</code>에 녹음을 저장합니다. 오디오 파일은 <kbd class="text-xs px-1 py-0.5 border border-border rounded">⌘V</kbd>로 붙여넣어도 저장됩니다. 전사는 Claude 세션에서 <code class="text-xs">/vault-transcribe</code>로 수행합니다.
+      볼트의 <code class="text-xs">_sources/recordings/</code>에 녹음을 저장합니다. 오디오 파일은 <kbd class="text-xs px-1 py-0.5 border border-border rounded">⌘V</kbd>로 붙여넣어도 저장됩니다.
     </p>
   </div>
 
@@ -191,12 +191,7 @@
   <div>
     <div class="flex items-baseline justify-between mb-2">
       <h3 class="text-sm font-medium text-fg-muted">녹음 파일</h3>
-      <span class="text-xs text-fg-muted">
-        {recordings.length}개
-        {#if recordings.length > 0}
-          · 미전사 {recordings.filter((r) => !r.transcribed).length}
-        {/if}
-      </span>
+      <span class="text-xs text-fg-muted">{recordings.length}개</span>
     </div>
     {#if recordings.length === 0}
       <p class="text-xs text-fg-muted">아직 녹음이 없습니다.</p>
@@ -206,22 +201,13 @@
           <div class="px-4 py-2.5 flex items-center justify-between gap-3 text-sm">
             <div class="flex items-center gap-2 min-w-0">
               <span class="truncate">{item.filename}</span>
-              {#if item.transcribed}
-                <span class="text-xs px-1.5 py-0.5 rounded-full bg-success/10 text-success shrink-0">
-                  전사 완료
-                </span>
-              {:else}
-                <span class="text-xs px-1.5 py-0.5 rounded-full bg-surface-3 text-fg-muted shrink-0">
-                  미전사
-                </span>
-              {/if}
             </div>
             <div class="flex items-center gap-3 shrink-0 text-xs text-fg-muted">
               <span>{formatSize(item.size)}</span>
               <span>{formatDate(item.modified_at)}</span>
               <button
                 aria-label="녹음 삭제"
-                title="녹음 삭제 (전사본은 유지됨)"
+                title="녹음 삭제"
                 onclick={() => removeRecording(item.filename)}
                 class="hover:text-danger transition-colors text-sm leading-none px-1"
               >
