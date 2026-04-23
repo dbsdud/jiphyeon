@@ -8,14 +8,14 @@ mod notifications;
 mod vault;
 mod watcher;
 
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 
 use tauri::Manager;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 use config::{load_config, ConfigState};
 use notifications::{NotificationsOffset, NotificationsState};
-use vault::{indexer, search};
+use std::sync::RwLock;
 use watcher::WatcherState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -56,29 +56,11 @@ pub fn run() {
                 .unwrap_or_else(|_| std::path::PathBuf::from("."));
             let config = load_config(&app_data_dir);
 
-            // 초기 인덱스 (볼트가 연결된 경우에만 스캔)
-            let initial_index = match config.vault_path.as_ref() {
-                Some(path) => {
-                    indexer::scan_vault(path, &config.exclude_dirs).unwrap_or_default()
-                }
-                None => Default::default(),
-            };
-
-            let search_index =
-                search::build_search_index(&initial_index.notes).unwrap_or_else(|e| {
-                    eprintln!("검색 인덱스 구축 실패: {e}");
-                    search::build_search_index(&[]).expect("빈 인덱스 생성 실패")
-                });
-
-            let search_state: search::SearchState = Arc::new(RwLock::new(search_index));
-            let vault_state: commands::vault::VaultState = Arc::new(RwLock::new(initial_index));
             let config_state: ConfigState = Arc::new(RwLock::new(config.clone()));
             let watcher_state: WatcherState = Arc::new(Mutex::new(None));
             let notifications_state: NotificationsState =
                 Arc::new(Mutex::new(NotificationsOffset::default()));
 
-            app.manage(vault_state);
-            app.manage(search_state);
             app.manage(config_state);
             app.manage(watcher_state.clone());
             app.manage(notifications_state.clone());
@@ -109,19 +91,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::vault::get_vault_stats,
-            commands::vault::get_note_list,
-            commands::vault::get_tag_list,
-            commands::vault::get_link_graph,
-            commands::vault::get_recent_notes,
-            commands::vault::get_folder_tree,
-            commands::vault::search_notes,
-            commands::vault::rescan_vault,
-            commands::vault::get_orphan_notes,
-            commands::vault::get_top_god_nodes,
-            commands::vault::get_cluster_summary,
             commands::note::get_note,
-            commands::note::get_backlinks,
             commands::note::open_in_editor,
             commands::note::create_quick_note,
             commands::clipper::clip_url,

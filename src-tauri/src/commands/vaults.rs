@@ -10,11 +10,9 @@ use tauri::{AppHandle, Manager, State};
 use crate::config::{save_config, ConfigState, VaultEntry};
 use crate::error::AppError;
 use crate::notifications::NotificationsState;
-use crate::vault::search;
 use crate::watcher::WatcherState;
 
 use super::onboarding::{activate_vault, VaultStatus};
-use super::vault::VaultState;
 
 /// 경로를 정규화한다:
 /// - trailing slash 제거
@@ -101,8 +99,6 @@ pub fn list_vaults(
 #[tauri::command]
 pub fn switch_vault(
     config_state: State<'_, ConfigState>,
-    vault_state: State<'_, VaultState>,
-    search_state: State<'_, search::SearchState>,
     watcher_state: State<'_, WatcherState>,
     notifications_state: State<'_, NotificationsState>,
     app_handle: AppHandle,
@@ -122,8 +118,6 @@ pub fn switch_vault(
 
     activate_vault(
         &config_state,
-        &vault_state,
-        &search_state,
         &watcher_state,
         &notifications_state,
         &app_handle,

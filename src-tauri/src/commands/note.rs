@@ -1,5 +1,4 @@
 use std::fs;
-use std::path::Path;
 
 use chrono::Local;
 use tauri::State;
@@ -8,20 +7,14 @@ use tauri_plugin_opener::OpenerExt;
 use crate::config::ConfigState;
 use crate::editor::{resolve_editor, ResolvedEditor};
 use crate::error::AppError;
-use crate::models::{BacklinkEntry, RenderedNote};
-use crate::vault::parser;
+use crate::models::RenderedNote;
 use crate::vault::renderer;
-
-use super::vault::VaultState;
 
 #[tauri::command]
 pub fn get_note(
-    state: State<'_, VaultState>,
     config_state: State<'_, ConfigState>,
     path: String,
 ) -> Result<RenderedNote, AppError> {
-    let index = state.read().map_err(|e| AppError::NoteNotFound(e.to_string()))?;
-
     let config = config_state
         .read()
         .map_err(|e| AppError::NoteNotFound(e.to_string()))?;
@@ -34,57 +27,7 @@ pub fn get_note(
         return Err(AppError::NoteNotFound(path));
     }
 
-    // 백링크 조회: path에서 title 추출 → backlinks 맵에서 소스 경로 조회
-    let title = parser::title_from_path(&abs_path);
-    let backlink_sources = index.backlinks.get(&title).cloned().unwrap_or_default();
-
-    let backlinks: Vec<BacklinkEntry> = backlink_sources
-        .iter()
-        .filter_map(|source_path| {
-            index.notes.iter().find(|n| n.path == *source_path).map(|n| {
-                BacklinkEntry {
-                    path: n.path.clone(),
-                    title: n.title.clone(),
-                    note_type: n.frontmatter.as_ref().map(|fm| fm.note_type.clone()),
-                    context: format!("→ [[{}]]", title),
-                }
-            })
-        })
-        .collect();
-
-    renderer::render_note(&abs_path, vault_path, &backlinks)
-}
-
-#[tauri::command]
-pub fn get_backlinks(
-    state: State<'_, VaultState>,
-    path: String,
-) -> Result<Vec<BacklinkEntry>, AppError> {
-    let index = state.read().map_err(|e| AppError::NoteNotFound(e.to_string()))?;
-
-    let title = Path::new(&path)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_string();
-
-    let backlink_sources = index.backlinks.get(&title).cloned().unwrap_or_default();
-
-    let backlinks: Vec<BacklinkEntry> = backlink_sources
-        .iter()
-        .filter_map(|source_path| {
-            index.notes.iter().find(|n| n.path == *source_path).map(|n| {
-                BacklinkEntry {
-                    path: n.path.clone(),
-                    title: n.title.clone(),
-                    note_type: n.frontmatter.as_ref().map(|fm| fm.note_type.clone()),
-                    context: format!("→ [[{}]]", title),
-                }
-            })
-        })
-        .collect();
-
-    Ok(backlinks)
+    renderer::render_note(&abs_path, vault_path, &[])
 }
 
 #[tauri::command]
@@ -155,7 +98,6 @@ pub fn create_quick_note(
 
     let mut file_path = inbox_dir.join(&filename);
 
-    // 파일명 충돌 처리
     let mut counter = 1;
     while file_path.exists() {
         let stem = filename.trim_end_matches(".md");
@@ -204,9 +146,6 @@ mod tests {
             ..Default::default()
         }
     }
-
-    // create_quick_note는 State<AppConfig>를 받으므로 직접 호출 불가.
-    // 핵심 로직을 테스트하기 위해 파일 생성 로직을 검증.
 
     #[test]
     fn creates_note_with_title() {

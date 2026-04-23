@@ -6,10 +6,8 @@ use tauri::{AppHandle, Manager, State};
 use crate::config::{save_config, ConfigState, VaultEntry};
 use crate::error::AppError;
 use crate::notifications::NotificationsState;
-use crate::vault::{indexer, search};
 use crate::watcher::{self, WatcherState};
 
-use super::vault::VaultState;
 use super::vaults::{derive_vault_name, normalize_vault_path, upsert_vault};
 
 /// 볼트 연결 상태
@@ -43,8 +41,6 @@ fn status_from_path(path: Option<&PathBuf>) -> VaultStatus {
 #[tauri::command]
 pub fn connect_vault(
     config_state: State<'_, ConfigState>,
-    vault_state: State<'_, VaultState>,
-    search_state: State<'_, search::SearchState>,
     watcher_state: State<'_, WatcherState>,
     notifications_state: State<'_, NotificationsState>,
     app_handle: AppHandle,
@@ -57,8 +53,6 @@ pub fn connect_vault(
 
     activate_vault(
         &config_state,
-        &vault_state,
-        &search_state,
         &watcher_state,
         &notifications_state,
         &app_handle,
@@ -66,12 +60,9 @@ pub fn connect_vault(
     )
 }
 
-/// 설정 저장 + 인덱스 재구축 + 검색 인덱스 재구축 + watcher 재시작 공통 처리.
-/// switch_vault에서도 재사용되므로 pub(crate).
+/// 설정 저장 + watcher 재시작 공통 처리. switch_vault에서도 재사용.
 pub(crate) fn activate_vault(
     config_state: &ConfigState,
-    vault_state: &VaultState,
-    search_state: &search::SearchState,
     watcher_state: &WatcherState,
     notifications_state: &NotificationsState,
     app_handle: &AppHandle,
@@ -98,23 +89,6 @@ pub(crate) fn activate_vault(
         config.clone()
     };
     save_config(&config_snapshot, &app_data_dir)?;
-
-    let new_index = indexer::scan_vault(&vault_path, &config_snapshot.exclude_dirs)?;
-    let new_search = search::build_search_index(&new_index.notes)
-        .map_err(|e| AppError::Search(e.to_string()))?;
-
-    {
-        let mut vs = vault_state
-            .write()
-            .map_err(|e| AppError::VaultNotFound(e.to_string()))?;
-        *vs = new_index;
-    }
-    {
-        let mut ss = search_state
-            .write()
-            .map_err(|e| AppError::Search(e.to_string()))?;
-        *ss = new_search;
-    }
 
     let new_watcher = watcher::start_watching(
         app_handle.clone(),

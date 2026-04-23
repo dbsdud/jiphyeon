@@ -51,6 +51,7 @@ pub fn extract_wikilinks(content: &str) -> Vec<String> {
 }
 
 /// .md 파일을 파싱하여 NoteEntry 생성
+#[allow(dead_code)]
 pub fn parse_note(path: &Path, vault_root: &Path) -> Result<NoteEntry, AppError> {
     let content = fs::read_to_string(path)?;
     let metadata = fs::metadata(path)?;

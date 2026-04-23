@@ -51,6 +51,7 @@ pub struct Frontmatter {
     pub extra: HashMap<String, serde_yaml_ng::Value>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NoteEntry {
     pub path: String,
@@ -61,87 +62,6 @@ pub struct NoteEntry {
     pub size: u64,
     #[serde(skip)]
     pub body: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct SearchResult {
-    pub path: String,
-    pub title: String,
-    pub frontmatter: Option<Frontmatter>,
-    pub modified_at: i64,
-    pub snippet: Option<String>,
-    pub match_field: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct VaultIndex {
-    pub notes: Vec<NoteEntry>,
-    pub backlinks: HashMap<String, Vec<String>>,
-    pub scanned_at: i64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct VaultStats {
-    pub total_notes: usize,
-    pub by_type: HashMap<String, usize>,
-    pub by_status: HashMap<String, usize>,
-    pub by_folder: HashMap<String, usize>,
-    pub total_links: usize,
-    pub total_tags: usize,
-    pub orphan_notes: usize,
-    pub broken_links: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct TagInfo {
-    pub name: String,
-    pub count: usize,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct GraphNode {
-    pub id: String,
-    pub path: String,
-    pub title: String,
-    pub note_type: Option<NoteType>,
-    pub link_count: usize,
-    pub tags: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct GodNode {
-    pub path: String,
-    pub title: String,
-    pub note_type: Option<NoteType>,
-    pub backlink_count: usize,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct ClusterInfo {
-    pub id: usize,
-    pub size: usize,
-    pub representative_path: String,
-    pub representative_title: String,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct ClusterSummary {
-    pub cluster_count: usize,
-    pub largest_size: usize,
-    pub isolated_count: usize,
-    pub clusters: Vec<ClusterInfo>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct GraphEdge {
-    pub source: String,
-    pub target: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct LinkGraph {
-    pub nodes: Vec<GraphNode>,
-    pub edges: Vec<GraphEdge>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -182,12 +102,4 @@ pub struct ClipResult {
 pub struct VaultChangeEvent {
     pub kind: ChangeKind,
     pub path: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct FolderNode {
-    pub name: String,
-    pub path: String,
-    pub note_count: usize,
-    pub children: Vec<FolderNode>,
 }
