@@ -69,7 +69,6 @@
     {
       title: "설정",
       items: [
-        { href: "/claude", label: "Claude", icon: "🤖" },
         { href: "/settings", label: "Settings", icon: "⚙️" },
       ],
     },

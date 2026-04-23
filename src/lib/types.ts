@@ -155,32 +155,6 @@ export interface DetectedEditor {
   command: string;
 }
 
-export interface ClaudeSkill {
-  name: string;
-  description: string;
-  path: string;
-}
-
-export interface ClaudeHook {
-  event: string;
-  matcher: string | null;
-  command: string;
-  script_path: string | null;
-}
-
-export interface SkillWarning {
-  path: string;
-  reason: string;
-}
-
-export interface ClaudeTools {
-  claude_md: string | null;
-  skills: ClaudeSkill[];
-  skill_warnings: SkillWarning[];
-  hooks: ClaudeHook[];
-  hooks_error: string | null;
-}
-
 export interface VaultEntry {
   path: string;
   name: string;

@@ -15,7 +15,6 @@ import type {
   AppConfig,
   AppConfigPatch,
   DetectedEditor,
-  ClaudeTools,
   VaultEntry,
   RecordingEntry,
 } from "./types";
@@ -118,10 +117,6 @@ export function updateConfig(patch: AppConfigPatch): Promise<AppConfig> {
 
 export function detectEditors(): Promise<DetectedEditor[]> {
   return invoke("detect_editors");
-}
-
-export function getClaudeTools(): Promise<ClaudeTools> {
-  return invoke("get_claude_tools");
 }
 
 export function listVaults(): Promise<VaultEntry[]> {

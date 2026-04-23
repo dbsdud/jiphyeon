@@ -1,4 +1,3 @@
-mod claude;
 mod clipper;
 mod commands;
 mod config;
@@ -131,7 +130,6 @@ pub fn run() {
             commands::settings::get_config,
             commands::settings::update_config,
             commands::settings::detect_editors,
-            commands::claude_tools::get_claude_tools,
             commands::vaults::list_vaults,
             commands::vaults::switch_vault,
             commands::vaults::remove_vault,

@@ -3,7 +3,6 @@
     getVaultStats,
     getRecentNotes,
     getTagList,
-    getClaudeTools,
     getVaultStatus,
     getTopGodNodes,
     getClusterSummary,
@@ -12,7 +11,6 @@
     VaultStats,
     NoteEntry,
     TagInfo,
-    ClaudeTools,
     GodNode,
     ClusterSummary,
   } from "$lib/types";
@@ -23,7 +21,6 @@
   let stats = $state<VaultStats | null>(null);
   let recentNotes = $state<NoteEntry[]>([]);
   let tags = $state<TagInfo[]>([]);
-  let claudeTools = $state<ClaudeTools | null>(null);
   let godNodes = $state<GodNode[]>([]);
   let clusters = $state<ClusterSummary | null>(null);
   let vaultName = $state("");
@@ -38,11 +35,10 @@
 
   async function load() {
     try {
-      const [s, r, t, c, v, g, cs] = await Promise.all([
+      const [s, r, t, v, g, cs] = await Promise.all([
         getVaultStats(),
         getRecentNotes(10),
         getTagList(),
-        getClaudeTools().catch(() => null),
         getVaultStatus().catch(() => null),
         getTopGodNodes(5).catch(() => []),
         getClusterSummary().catch(() => null),
@@ -50,7 +46,6 @@
       stats = s;
       recentNotes = r;
       tags = t;
-      claudeTools = c;
       vaultName = deriveName(v?.vault_path ?? null);
       godNodes = g;
       clusters = cs;
@@ -245,35 +240,6 @@
         {/if}
       </div>
     </div>
-
-    <!-- Claude 도구 요약 -->
-    {#if claudeTools}
-      <a
-        href="/claude"
-        class="block mt-6 bg-surface-1 rounded-lg border border-border p-4
-               hover:border-accent hover:bg-surface-2 transition-colors"
-      >
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <span class="text-2xl">🤖</span>
-            <div>
-              <div class="text-sm font-medium text-fg">Claude 도구</div>
-              <div class="text-xs text-fg-muted mt-0.5">
-                스킬 {claudeTools.skills.length}개 · 훅 {claudeTools.hooks.length}개
-                {#if claudeTools.claude_md}· CLAUDE.md{/if}
-                {#if claudeTools.skill_warnings.length > 0 || claudeTools.hooks_error}
-                  <span class="text-warning ml-1">
-                    ⚠️ 경고 {claudeTools.skill_warnings.length +
-                      (claudeTools.hooks_error ? 1 : 0)}
-                  </span>
-                {/if}
-              </div>
-            </div>
-          </div>
-          <span class="text-xs text-fg-muted">자세히 →</span>
-        </div>
-      </a>
-    {/if}
 
     <!-- Recent Notes -->
     <div class="mt-6">
