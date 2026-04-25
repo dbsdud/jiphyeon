@@ -122,10 +122,8 @@ pub fn save_recording(
     let config = config_state
         .read()
         .map_err(|e| AppError::VaultNotFound(e.to_string()))?;
-    let vault_path = config
-        .vault_path
-        .as_ref()
-        .ok_or(AppError::VaultNotConfigured)?;
+    let project = config.active_project().ok_or(AppError::VaultNotConfigured)?;
+    let vault_path = &project.docs_path;
     let path = save_recording_impl(vault_path, &filename, &bytes)?;
     Ok(path.to_string_lossy().to_string())
 }
@@ -138,10 +136,8 @@ pub fn delete_recording(
     let config = config_state
         .read()
         .map_err(|e| AppError::VaultNotFound(e.to_string()))?;
-    let vault_path = config
-        .vault_path
-        .as_ref()
-        .ok_or(AppError::VaultNotConfigured)?;
+    let project = config.active_project().ok_or(AppError::VaultNotConfigured)?;
+    let vault_path = &project.docs_path;
     delete_recording_impl(vault_path, &filename)
 }
 
@@ -152,10 +148,8 @@ pub fn list_recordings(
     let config = config_state
         .read()
         .map_err(|e| AppError::VaultNotFound(e.to_string()))?;
-    let vault_path = config
-        .vault_path
-        .as_ref()
-        .ok_or(AppError::VaultNotConfigured)?;
+    let project = config.active_project().ok_or(AppError::VaultNotConfigured)?;
+    let vault_path = &project.docs_path;
     list_recordings_impl(vault_path)
 }
 

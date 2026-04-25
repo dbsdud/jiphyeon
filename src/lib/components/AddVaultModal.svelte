@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { open } from "@tauri-apps/plugin-dialog";
-  import { connectVault } from "$lib/api";
+  import { open as openDialog } from "@tauri-apps/plugin-dialog";
+  import { registerProject } from "$lib/api";
 
   interface Props {
     open: boolean;
@@ -8,33 +8,23 @@
     onadded: (path: string, created: boolean) => void;
   }
 
-  const { open: isOpen, onclose, onadded }: Props = $props();
+  let { open, onclose, onadded }: Props = $props();
 
   let busy = $state(false);
   let error = $state("");
 
-  async function pickDirectory(title: string): Promise<string | null> {
-    const selected = await open({ directory: true, multiple: false, title });
-    return typeof selected === "string" ? selected : null;
-  }
-
-  function resetAndClose() {
-    error = "";
-    busy = false;
-    onclose();
-  }
-
-  async function handleConnect() {
-    error = "";
-    const dir = await pickDirectory("연결할 볼트 폴더 선택");
-    if (!dir) return;
+  async function selectAndRegister(): Promise<void> {
     busy = true;
+    error = "";
     try {
-      const status = await connectVault(dir);
-      if (status.vault_path) {
-        onadded(status.vault_path, false);
-        resetAndClose();
+      const picked = await openDialog({ directory: true, multiple: false });
+      if (typeof picked !== "string") {
+        busy = false;
+        return;
       }
+      const entry = await registerProject(picked, null, true);
+      onadded(entry.root_path, false);
+      onclose();
     } catch (e) {
       error = String(e);
     } finally {
@@ -43,43 +33,31 @@
   }
 </script>
 
-{#if isOpen}
-  <div
-    class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6"
-    role="dialog"
-    aria-modal="true"
-  >
-    <div class="bg-surface-1 border border-border rounded-xl p-6 max-w-md w-full">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-base font-semibold text-fg">볼트 추가</h2>
+{#if open}
+  <div class="fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-6">
+    <div class="bg-surface-1 border border-border rounded-xl w-full max-w-md p-6">
+      <h3 class="text-lg font-semibold mb-3">프로젝트 추가</h3>
+      <p class="text-sm text-fg-muted mb-4">
+        등록할 프로젝트 폴더를 선택하세요. docs/ 가 없으면 자동 생성됩니다 (B-2 에서 다이얼로그로 분리 예정).
+      </p>
+      <div class="flex gap-2 justify-end">
         <button
-          class="text-fg-muted hover:text-fg"
-          onclick={resetAndClose}
+          class="px-3 py-1.5 text-sm rounded border border-border text-fg-muted hover:text-fg"
+          onclick={onclose}
           disabled={busy}
-          aria-label="닫기"
         >
-          ✕
+          취소
+        </button>
+        <button
+          class="px-3 py-1.5 text-sm rounded bg-accent text-accent-fg hover:bg-accent/80 disabled:opacity-50"
+          onclick={selectAndRegister}
+          disabled={busy}
+        >
+          {busy ? "등록 중..." : "폴더 선택"}
         </button>
       </div>
-
-      <button
-        class="w-full flex items-start gap-3 p-4 rounded-lg border border-border text-left
-               hover:border-accent hover:bg-surface-2 transition-colors
-               disabled:opacity-50"
-        onclick={handleConnect}
-        disabled={busy}
-      >
-        <span class="text-xl">📂</span>
-        <div>
-          <div class="text-sm font-medium text-fg">볼트 연결</div>
-          <div class="text-xs text-fg-muted mt-1">
-            마크다운 파일이 들어있는 디렉토리를 선택합니다.
-          </div>
-        </div>
-      </button>
-
       {#if error}
-        <p class="mt-4 text-xs text-danger">{error}</p>
+        <p class="text-xs text-danger mt-3 break-all">{error}</p>
       {/if}
     </div>
   </div>

@@ -5,17 +5,17 @@ mod editor;
 mod error;
 mod models;
 mod notifications;
+mod project;
 mod vault;
 mod watcher;
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use tauri::Manager;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 use config::{load_config, ConfigState};
 use notifications::{NotificationsOffset, NotificationsState};
-use std::sync::RwLock;
 use watcher::WatcherState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -49,27 +49,23 @@ pub fn run() {
                 .build(),
         )
         .setup(move |app| {
-            // 설정 로드 (app_data_dir/config.json)
             let app_data_dir = app
                 .path()
                 .app_data_dir()
                 .unwrap_or_else(|_| std::path::PathBuf::from("."));
             let config = load_config(&app_data_dir);
 
-            let config_state: ConfigState = Arc::new(RwLock::new(config.clone()));
             let watcher_state: WatcherState = Arc::new(Mutex::new(None));
             let notifications_state: NotificationsState =
                 Arc::new(Mutex::new(NotificationsOffset::default()));
 
-            app.manage(config_state);
-            app.manage(watcher_state.clone());
-            app.manage(notifications_state.clone());
-
-            // watcher 시작 (vault_path가 설정된 경우에만)
-            if config.vault_path.is_some() {
+            // 활성 프로젝트가 있으면 watcher 시작
+            if let Some(project) = config.active_project() {
                 match watcher::start_watching(
                     app.handle().clone(),
-                    &config,
+                    &project.root_path,
+                    &config.exclude_dirs,
+                    config.watch_debounce_ms,
                     notifications_state.clone(),
                 ) {
                     Ok(w) => {
@@ -83,7 +79,11 @@ pub fn run() {
                 }
             }
 
-            // 글로벌 단축키 등록
+            let config_state: ConfigState = Arc::new(RwLock::new(config));
+            app.manage(config_state);
+            app.manage(watcher_state);
+            app.manage(notifications_state);
+
             if let Err(e) = app.global_shortcut().register(shortcut) {
                 eprintln!("글로벌 단축키 등록 실패: {e}");
             }
@@ -95,14 +95,14 @@ pub fn run() {
             commands::note::open_in_editor,
             commands::note::create_quick_note,
             commands::clipper::clip_url,
-            commands::onboarding::get_vault_status,
-            commands::onboarding::connect_vault,
+            commands::projects::list_projects,
+            commands::projects::register_project,
+            commands::projects::switch_project,
+            commands::projects::remove_project,
+            commands::projects::get_active_project,
             commands::settings::get_config,
             commands::settings::update_config,
             commands::settings::detect_editors,
-            commands::vaults::list_vaults,
-            commands::vaults::switch_vault,
-            commands::vaults::remove_vault,
             commands::transcribe::save_recording,
             commands::transcribe::delete_recording,
             commands::transcribe::list_recordings,

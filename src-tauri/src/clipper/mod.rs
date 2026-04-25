@@ -40,16 +40,16 @@ pub fn slugify(title: &str) -> String {
     }
 }
 
-/// URL → 마크다운 클리핑 파이프라인
-pub fn clip_url(request: &ClipRequest, vault_path: &Path) -> Result<ClipResult, AppError> {
+/// URL → 마크다운 클리핑 파이프라인. `docs_path` 는 활성 프로젝트의 docs/.
+pub fn clip_url(request: &ClipRequest, docs_path: &Path) -> Result<ClipResult, AppError> {
     let html = fetch_html(&request.url)?;
-    clip_url_with_html(request, vault_path, &html)
+    clip_url_with_html(request, docs_path, &html)
 }
 
 /// HTML을 직접 받아 클리핑 (테스트 + 내부 파이프라인)
 pub fn clip_url_with_html(
     request: &ClipRequest,
-    vault_path: &Path,
+    docs_path: &Path,
     html: &str,
 ) -> Result<ClipResult, AppError> {
     let extracted = extractor::extract_article(html);
@@ -64,7 +64,7 @@ pub fn clip_url_with_html(
     let slug = slugify(&title);
     let filename = format!("{}-{}.md", today, slug);
 
-    let inbox_dir = vault_path.join("inbox");
+    let inbox_dir = docs_path.join("inbox");
     fs::create_dir_all(&inbox_dir)?;
 
     let tags_str = request
@@ -91,7 +91,7 @@ pub fn clip_url_with_html(
     );
 
     let rel_path = format!("inbox/{}", filename);
-    let full_path = vault_path.join(&rel_path);
+    let full_path = docs_path.join(&rel_path);
     fs::write(&full_path, &content)?;
 
     Ok(ClipResult {
@@ -216,7 +216,7 @@ mod tests {
     #[test]
     fn test_clip_url_creates_file() {
         let dir = TempDir::new().unwrap();
-        let vault_path = dir.path();
+        let docs_path = dir.path();
 
         let html = r#"
         <html>
@@ -229,12 +229,12 @@ mod tests {
             tags: Some(vec!["test".to_string()]),
         };
 
-        let result = clip_url_with_html(&request, vault_path, html).unwrap();
+        let result = clip_url_with_html(&request, docs_path, html).unwrap();
         assert!(result.success);
         assert!(result.path.starts_with("inbox/"));
         assert!(result.path.ends_with(".md"));
 
-        let full_path = vault_path.join(&result.path);
+        let full_path = docs_path.join(&result.path);
         assert!(full_path.exists());
 
         let content = fs::read_to_string(full_path).unwrap();
@@ -247,8 +247,8 @@ mod tests {
     #[test]
     fn test_clip_url_creates_inbox_dir() {
         let dir = TempDir::new().unwrap();
-        let vault_path = dir.path();
-        assert!(!vault_path.join("inbox").exists());
+        let docs_path = dir.path();
+        assert!(!docs_path.join("inbox").exists());
 
         let html = "<html><head><title>T</title></head><body><p>C</p></body></html>";
         let request = ClipRequest {
@@ -256,8 +256,8 @@ mod tests {
             tags: None,
         };
 
-        let result = clip_url_with_html(&request, vault_path, html).unwrap();
+        let result = clip_url_with_html(&request, docs_path, html).unwrap();
         assert!(result.success);
-        assert!(vault_path.join("inbox").exists());
+        assert!(docs_path.join("inbox").exists());
     }
 }

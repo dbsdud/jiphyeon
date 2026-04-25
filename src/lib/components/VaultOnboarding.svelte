@@ -1,35 +1,28 @@
 <script lang="ts">
-  import { open } from "@tauri-apps/plugin-dialog";
-  import { connectVault } from "$lib/api";
+  import { open as openDialog } from "@tauri-apps/plugin-dialog";
+  import { registerProject } from "$lib/api";
 
   interface Props {
     onconnected: (path: string, created: boolean) => void;
   }
 
-  const { onconnected }: Props = $props();
+  let { onconnected }: Props = $props();
 
   let busy = $state(false);
   let error = $state("");
 
-  async function pickDirectory(title: string): Promise<string | null> {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title,
-    });
-    return typeof selected === "string" ? selected : null;
-  }
-
-  async function handleConnect() {
-    error = "";
-    const dir = await pickDirectory("연결할 볼트 폴더 선택");
-    if (!dir) return;
+  async function selectAndRegister(): Promise<void> {
     busy = true;
+    error = "";
     try {
-      const status = await connectVault(dir);
-      if (status.vault_path) {
-        onconnected(status.vault_path, false);
+      const picked = await openDialog({ directory: true, multiple: false });
+      if (typeof picked !== "string") {
+        busy = false;
+        return;
       }
+      // Slice B-2에서 docs/ 미존재 다이얼로그를 추가하기 전 임시: 무조건 create_docs=true.
+      const entry = await registerProject(picked, null, true);
+      onconnected(entry.root_path, false);
     } catch (e) {
       error = String(e);
     } finally {
@@ -38,42 +31,24 @@
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center bg-surface-0 px-6">
-  <div class="w-full max-w-xl">
-    <header class="text-center mb-10">
-      <div class="text-5xl mb-3">📓</div>
-      <h1 class="text-2xl font-bold text-fg mb-2">집현 시작하기</h1>
-      <p class="text-sm text-fg-muted">
-        마크다운 볼트 폴더를 선택해 연결하세요
-      </p>
-    </header>
-
+<div class="min-h-screen flex items-center justify-center p-8">
+  <div class="bg-surface-1 border border-border rounded-xl max-w-md w-full p-8 text-center">
+    <h1 class="text-2xl font-bold mb-3">집현 v2.0</h1>
+    <p class="text-sm text-fg-muted mb-6">
+      프로젝트(레포) 폴더를 등록하면 집현이 해당 프로젝트의 docs/ 와 graphify-out/ 을 데이터 소스로 사용합니다.
+    </p>
     <button
-      class="group w-full bg-surface-1 border border-border rounded-xl p-5 text-left
-             hover:border-accent hover:bg-surface-2 transition-all
-             disabled:opacity-50 disabled:cursor-not-allowed"
-      onclick={handleConnect}
+      class="px-5 py-2 rounded bg-accent text-accent-fg hover:bg-accent/80 transition-colors disabled:opacity-50"
+      onclick={selectAndRegister}
       disabled={busy}
     >
-      <div class="flex items-start gap-4">
-        <div class="text-3xl">📂</div>
-        <div class="flex-1">
-          <h2 class="text-base font-semibold text-fg mb-1">볼트 연결</h2>
-          <p class="text-sm text-fg-muted">
-            마크다운 파일이 들어있는 디렉토리를 선택하세요. 빈 폴더도 가능합니다.
-          </p>
-        </div>
-      </div>
+      {busy ? "등록 중..." : "프로젝트 폴더 선택"}
     </button>
-
-    {#if busy}
-      <p class="text-center text-sm text-fg-muted mt-6">처리 중...</p>
-    {/if}
-
     {#if error}
-      <div class="mt-6 bg-danger/10 border border-danger/30 rounded-lg p-4 text-sm text-danger">
-        {error}
-      </div>
+      <p class="text-xs text-danger mt-3 break-all">{error}</p>
     {/if}
+    <p class="text-xs text-fg-muted/70 mt-6">
+      Slice B-2 에서 docs/ 자동 감지·생성 다이얼로그가 추가될 예정입니다.
+    </p>
   </div>
 </div>
