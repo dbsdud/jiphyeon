@@ -79,6 +79,7 @@
 
   let unlistenNotification: UnlistenFn | null = null;
   let unlistenVaultChanged: UnlistenFn | null = null;
+  let unlistenGraphifyUpdated: UnlistenFn | null = null;
   let unwatchSystemTheme: (() => void) | null = null;
 
   onMount(async () => {
@@ -116,11 +117,20 @@
     } catch (err) {
       console.error("vault-changed listener 등록 실패", err);
     }
+
+    try {
+      unlistenGraphifyUpdated = await listen("graphify-updated", () => {
+        vaultRefresh.bump();
+      });
+    } catch (err) {
+      console.error("graphify-updated listener 등록 실패", err);
+    }
   });
 
   onDestroy(() => {
     unlistenNotification?.();
     unlistenVaultChanged?.();
+    unlistenGraphifyUpdated?.();
     unwatchSystemTheme?.();
   });
 

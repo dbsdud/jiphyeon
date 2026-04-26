@@ -1,0 +1,17 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "loner",
+      "id": "n_loner",
+      "file_type": "code",
+      "source_file": "src/loner.rs",
+      "source_location": "L1",
+      "community": 0,
+      "norm_label": "loner"
+    }
+  ],
+  "links": []
+}

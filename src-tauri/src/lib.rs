@@ -3,6 +3,7 @@ mod commands;
 mod config;
 mod editor;
 mod error;
+mod graphify;
 mod models;
 mod notifications;
 mod project;
@@ -113,6 +114,9 @@ pub fn run() {
             commands::note::open_in_editor,
             commands::note::create_quick_note,
             commands::clipper::clip_url,
+            commands::graphify::get_graphify_graph,
+            commands::graphify::get_graphify_report,
+            commands::graphify::get_graphify_status,
             commands::projects::list_projects,
             commands::projects::register_project,
             commands::projects::switch_project,

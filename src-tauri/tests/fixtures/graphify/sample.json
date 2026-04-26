@@ -1,0 +1,63 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {
+    "hyperedges": [
+      {
+        "id": "trio",
+        "label": "Three nodes share a concept",
+        "nodes": ["n_a", "n_b", "n_c"],
+        "relation": "participate_in",
+        "confidence": "EXTRACTED",
+        "confidence_score": 0.9,
+        "source_file": "docs/spec.md"
+      }
+    ]
+  },
+  "nodes": [
+    {
+      "label": "Alpha",
+      "id": "n_a",
+      "file_type": "code",
+      "source_file": "src/a.rs",
+      "source_location": "L10",
+      "community": 1,
+      "norm_label": "alpha"
+    },
+    {
+      "label": "Beta",
+      "id": "n_b",
+      "file_type": "document",
+      "source_file": "docs/b.md",
+      "community": 1
+    },
+    {
+      "label": "Gamma",
+      "id": "n_c"
+    }
+  ],
+  "links": [
+    {
+      "source": "n_a",
+      "target": "n_b",
+      "relation": "describes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/b.md",
+      "weight": 1.0
+    },
+    {
+      "source": "n_b",
+      "target": "n_c",
+      "relation": "alias_of",
+      "confidence": "INFERRED",
+      "confidence_score": 0.65
+    },
+    {
+      "source": "n_a",
+      "target": "n_c",
+      "relation": "mystery",
+      "confidence": "WEIRD"
+    }
+  ]
+}
