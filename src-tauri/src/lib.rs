@@ -100,6 +100,7 @@ pub fn run() {
             commands::projects::switch_project,
             commands::projects::remove_project,
             commands::projects::get_active_project,
+            commands::projects::inspect_project_root,
             commands::settings::get_config,
             commands::settings::update_config,
             commands::settings::detect_editors,

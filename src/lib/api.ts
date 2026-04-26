@@ -7,6 +7,7 @@ import type {
   AppConfigPatch,
   DetectedEditor,
   ProjectEntry,
+  ProjectInspection,
   RecordingEntry,
 } from "./types";
 
@@ -36,6 +37,10 @@ export function listProjects(): Promise<ProjectEntry[]> {
 
 export function getActiveProject(): Promise<ProjectEntry | null> {
   return invoke("get_active_project");
+}
+
+export function inspectProjectRoot(rootPath: string): Promise<ProjectInspection> {
+  return invoke("inspect_project_root", { rootPath });
 }
 
 export function registerProject(

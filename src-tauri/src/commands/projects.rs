@@ -1,17 +1,67 @@
 //! Project 레지스트리 IPC 커맨드.
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
+use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 
 use crate::config::{save_config, ConfigState};
 use crate::error::AppError;
 use crate::notifications::NotificationsState;
 use crate::project::{
-    derive_project_id, new_project_entry, normalize_root, read_last_graphify_at, ProjectEntry,
+    derive_project_id, derive_project_name, new_project_entry, normalize_root,
+    read_last_graphify_at, ProjectEntry,
 };
 use crate::watcher::{self, WatcherState};
+
+/// 폴더 등록 전 사전 점검 결과.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ProjectInspection {
+    pub root_path: String,
+    pub root_exists: bool,
+    pub docs_exists: bool,
+    pub docs_is_dir: bool,
+    pub graphify_out_exists: bool,
+    pub already_registered: bool,
+    pub suggested_name: String,
+}
+
+#[tauri::command]
+pub fn inspect_project_root(
+    config_state: State<'_, ConfigState>,
+    root_path: String,
+) -> Result<ProjectInspection, AppError> {
+    let raw = PathBuf::from(&root_path);
+    let normalized = normalize_root(&raw);
+    let already_registered = {
+        let config = config_state
+            .read()
+            .map_err(|e| AppError::VaultNotFound(e.to_string()))?;
+        let id = derive_project_id(&normalized);
+        config.projects.iter().any(|p| p.id == id)
+    };
+    Ok(inspect_path(&normalized, already_registered))
+}
+
+fn inspect_path(normalized: &Path, already_registered: bool) -> ProjectInspection {
+    let root_exists = normalized.exists();
+    let docs = normalized.join("docs");
+    let docs_meta = fs::metadata(&docs).ok();
+    let docs_exists = docs_meta.is_some();
+    let docs_is_dir = docs_meta.map(|m| m.is_dir()).unwrap_or(false);
+    let graphify_out_exists = normalized.join("graphify-out").is_dir();
+
+    ProjectInspection {
+        root_path: normalized.to_string_lossy().to_string(),
+        root_exists,
+        docs_exists,
+        docs_is_dir,
+        graphify_out_exists,
+        already_registered,
+        suggested_name: derive_project_name(normalized),
+    }
+}
 
 #[tauri::command]
 pub fn list_projects(
@@ -216,6 +266,68 @@ mod tests {
     use super::*;
     use crate::config::AppConfig;
     use tempfile::TempDir;
+
+    // --- inspect_path ---
+
+    #[test]
+    fn inspect_missing_root() {
+        let dir = TempDir::new().unwrap();
+        let nonexistent = dir.path().join("ghost");
+        let r = inspect_path(&nonexistent, false);
+        assert!(!r.root_exists);
+        assert!(!r.docs_exists);
+        assert!(!r.graphify_out_exists);
+        assert!(!r.already_registered);
+        assert_eq!(r.suggested_name, "ghost");
+    }
+
+    #[test]
+    fn inspect_root_without_docs_or_graphify() {
+        let dir = TempDir::new().unwrap();
+        let r = inspect_path(dir.path(), false);
+        assert!(r.root_exists);
+        assert!(!r.docs_exists);
+        assert!(!r.docs_is_dir);
+        assert!(!r.graphify_out_exists);
+    }
+
+    #[test]
+    fn inspect_root_with_docs_as_file() {
+        let dir = TempDir::new().unwrap();
+        fs::write(dir.path().join("docs"), "not a dir").unwrap();
+        let r = inspect_path(dir.path(), false);
+        assert!(r.root_exists);
+        assert!(r.docs_exists);
+        assert!(!r.docs_is_dir);
+    }
+
+    #[test]
+    fn inspect_root_with_docs_and_graphify() {
+        let dir = TempDir::new().unwrap();
+        fs::create_dir_all(dir.path().join("docs")).unwrap();
+        fs::create_dir_all(dir.path().join("graphify-out")).unwrap();
+        let r = inspect_path(dir.path(), false);
+        assert!(r.root_exists);
+        assert!(r.docs_exists);
+        assert!(r.docs_is_dir);
+        assert!(r.graphify_out_exists);
+    }
+
+    #[test]
+    fn inspect_already_registered_flag_pass_through() {
+        let dir = TempDir::new().unwrap();
+        let r = inspect_path(dir.path(), true);
+        assert!(r.already_registered);
+    }
+
+    #[test]
+    fn inspect_suggested_name_uses_basename() {
+        let dir = TempDir::new().unwrap();
+        let sub = dir.path().join("my-proj");
+        fs::create_dir_all(&sub).unwrap();
+        let r = inspect_path(&sub, false);
+        assert_eq!(r.suggested_name, "my-proj");
+    }
 
     #[test]
     fn refresh_sets_last_graphify_when_present() {

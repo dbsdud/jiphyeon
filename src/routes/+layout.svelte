@@ -5,9 +5,8 @@
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import WebClipDialog from "$lib/components/WebClipDialog.svelte";
   import Toast from "$lib/components/Toast.svelte";
-  import VaultOnboarding from "$lib/components/VaultOnboarding.svelte";
-  import GitInitModal from "$lib/components/GitInitModal.svelte";
-  import AddVaultModal from "$lib/components/AddVaultModal.svelte";
+  import ProjectOnboarding from "$lib/components/ProjectOnboarding.svelte";
+  import AddProjectModal from "$lib/components/AddProjectModal.svelte";
   import {
     getActiveProject,
     listProjects,
@@ -128,8 +127,6 @@
   let activeProject = $state<ProjectEntry | null>(null);
   let activeProjectLoaded = $state(false);
   let projects = $state<ProjectEntry[]>([]);
-  let gitModalOpen = $state(false);
-  let gitModalPath = $state("");
   let addVaultOpen = $state(false);
   let vaultActionBusy = $state(false);
 
@@ -156,12 +153,12 @@
   loadActiveProject();
   loadProjects();
 
-  function onConnected(_path: string, _created: boolean): void {
+  function onConnected(_entry: ProjectEntry): void {
     loadActiveProject();
     loadProjects();
   }
 
-  async function onVaultAdded(_path: string, _created: boolean): Promise<void> {
+  function onProjectAdded(_entry: ProjectEntry): void {
     window.location.reload();
   }
 
@@ -233,7 +230,7 @@
     Loading...
   </div>
 {:else if !activeProject}
-  <VaultOnboarding onconnected={onConnected} />
+  <ProjectOnboarding onconnected={onConnected} />
 {:else}
   <div class="flex h-screen overflow-hidden">
     <!-- Sidebar -->
@@ -369,14 +366,9 @@
     visible={toastVisible}
     onclose={() => { toastVisible = false; }}
   />
-  <GitInitModal
-    open={gitModalOpen}
-    vaultPath={gitModalPath}
-    onclose={() => { gitModalOpen = false; }}
-  />
-  <AddVaultModal
+  <AddProjectModal
     open={addVaultOpen}
     onclose={() => { addVaultOpen = false; }}
-    onadded={onVaultAdded}
+    onadded={onProjectAdded}
   />
 {/if}

@@ -54,6 +54,16 @@ export interface ProjectEntry {
   last_graphify_at: string | null;
 }
 
+export interface ProjectInspection {
+  root_path: string;
+  root_exists: boolean;
+  docs_exists: boolean;
+  docs_is_dir: boolean;
+  graphify_out_exists: boolean;
+  already_registered: boolean;
+  suggested_name: string;
+}
+
 export interface AppConfig {
   projects: ProjectEntry[];
   active_project_id: string | null;
