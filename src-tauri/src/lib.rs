@@ -42,8 +42,8 @@ pub fn run() {
                                 "capture",
                                 tauri::WebviewUrl::App("/capture".into()),
                             )
-                            .title("Quick Note")
-                            .inner_size(480.0, 360.0)
+                            .title("Capture")
+                            .inner_size(560.0, 460.0)
                             .resizable(false)
                             .always_on_top(true)
                             .build();

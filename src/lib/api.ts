@@ -30,8 +30,9 @@ export function createQuickNote(
   title: string | null,
   content: string,
   tags: string[],
+  projectId: string | null = null,
 ): Promise<string> {
-  return invoke("create_quick_note", { title, content, tags });
+  return invoke("create_quick_note", { title, content, tags, projectId });
 }
 
 export function clipUrl(request: ClipRequest): Promise<ClipResult> {
