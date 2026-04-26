@@ -87,10 +87,11 @@ export function getProjectFolderTree(): Promise<ProjectFolderNode>;
 - Then: `Ok(vec![])` (빈 결과; 에러 X)
 - Given: 활성 프로젝트, `subpath=None`
 - When: 호출
-- Then: docs/ 의 직접 자식 .md 파일들만 반환 (하위 폴더 재귀 X). `modified_at` 내림차순 정렬.
+- Then: docs/ 하위의 모든 `.md` 파일을 재귀로 수집해 반환. `modified_at` 내림차순 정렬.
 - Given: 활성 프로젝트, `subpath=Some("decisions")`
 - When: 호출
-- Then: docs/decisions/ 의 직접 자식 .md 파일들 반환
+- Then: docs/decisions/ 하위 모든 `.md` 파일 (재귀) 반환
+- 디렉토리 제외 규칙: `AppConfig.exclude_dirs` + `.git`/`.claude`/`node_modules`/`target` + dotfile 폴더
 - Given: subpath 가 docs/ 바깥을 가리킴 (e.g. `"../etc"`)
 - When: 호출
 - Then: `Err(AppError::InvalidPath)` (path traversal 차단)

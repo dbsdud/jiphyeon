@@ -220,12 +220,12 @@ pub fn list_project_files(
     config_state: State<'_, ConfigState>,
     subpath: Option<String>,
 ) -> Result<Vec<ProjectFileEntry>, AppError> {
-    let docs_path = {
+    let (docs_path, exclude_dirs) = {
         let config = config_state
             .read()
             .map_err(|e| AppError::VaultNotFound(e.to_string()))?;
         let project = config.active_project().ok_or(AppError::VaultNotConfigured)?;
-        project.docs_path.clone()
+        (project.docs_path.clone(), config.exclude_dirs.clone())
     };
 
     let target = resolve_subpath(&docs_path, subpath.as_deref())?;
@@ -233,7 +233,15 @@ pub fn list_project_files(
         return Ok(Vec::new());
     }
 
-    list_files_in(&docs_path, &target)
+    let excluded: Vec<String> = exclude_dirs
+        .into_iter()
+        .chain(DEFAULT_EXCLUDE_TREE_DIRS.iter().map(|s| s.to_string()))
+        .collect();
+
+    let mut entries = Vec::new();
+    collect_files_recursive(&docs_path, &target, &excluded, &mut entries)?;
+    entries.sort_by(|a, b| b.modified_at.cmp(&a.modified_at));
+    Ok(entries)
 }
 
 #[tauri::command]
@@ -285,11 +293,32 @@ fn resolve_subpath(docs_path: &Path, subpath: Option<&str>) -> Result<PathBuf, A
     Ok(docs_path.join(candidate))
 }
 
-fn list_files_in(docs_root: &Path, dir: &Path) -> Result<Vec<ProjectFileEntry>, AppError> {
-    let mut entries = Vec::new();
+/// `dir` 하위의 모든 `.md` 파일을 재귀로 수집한다.
+/// `exclude_dirs`(이름 매칭) + dotfile 폴더는 건너뛴다. 정렬은 호출자 책임.
+fn collect_files_recursive(
+    docs_root: &Path,
+    dir: &Path,
+    exclude_dirs: &[String],
+    out: &mut Vec<ProjectFileEntry>,
+) -> Result<(), AppError> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
+        let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+
+        if path.is_dir() {
+            if file_name.starts_with('.') {
+                continue;
+            }
+            if exclude_dirs.iter().any(|d| d == file_name) {
+                continue;
+            }
+            collect_files_recursive(docs_root, &path, exclude_dirs, out)?;
+            continue;
+        }
+
         if !path.is_file() {
             continue;
         }
@@ -317,7 +346,7 @@ fn list_files_in(docs_root: &Path, dir: &Path) -> Result<Vec<ProjectFileEntry>, 
             .to_string_lossy()
             .to_string();
 
-        entries.push(ProjectFileEntry {
+        out.push(ProjectFileEntry {
             path: relative,
             title,
             note_type,
@@ -325,8 +354,7 @@ fn list_files_in(docs_root: &Path, dir: &Path) -> Result<Vec<ProjectFileEntry>, 
             size: meta.len(),
         });
     }
-    entries.sort_by(|a, b| b.modified_at.cmp(&a.modified_at));
-    Ok(entries)
+    Ok(())
 }
 
 /// 파일의 첫 4 KiB 만 읽어 frontmatter 의 title/type 을 추출. 실패 시 파일 stem 사용.
@@ -598,49 +626,75 @@ mod tests {
         assert!(matches!(err, Err(AppError::InvalidPath(_))));
     }
 
-    // --- list_files_in ---
+    // --- collect_files_recursive ---
 
     fn write_md(dir: &Path, name: &str, content: &str) {
         fs::create_dir_all(dir).unwrap();
         fs::write(dir.join(name), content).unwrap();
     }
 
+    fn collect(root: &Path, dir: &Path, exclude: &[String]) -> Vec<ProjectFileEntry> {
+        let mut out = Vec::new();
+        collect_files_recursive(root, dir, exclude, &mut out).unwrap();
+        out.sort_by(|a, b| a.path.cmp(&b.path));
+        out
+    }
+
     #[test]
-    fn list_files_only_md_at_top_level() {
+    fn collect_recurses_into_subdirs() {
         let dir = TempDir::new().unwrap();
         write_md(dir.path(), "a.md", "# A");
         write_md(dir.path(), "b.txt", "ignored");
-        fs::create_dir_all(dir.path().join("sub")).unwrap();
-        write_md(&dir.path().join("sub"), "c.md", "# C"); // 재귀 X
+        write_md(&dir.path().join("sub"), "c.md", "# C");
+        write_md(&dir.path().join("sub").join("deep"), "d.md", "# D");
 
-        let entries = list_files_in(dir.path(), dir.path()).unwrap();
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].path, "a.md");
+        let entries = collect(dir.path(), dir.path(), &[]);
+        let paths: Vec<&str> = entries.iter().map(|e| e.path.as_str()).collect();
+        assert_eq!(paths, vec!["a.md", "sub/c.md", "sub/deep/d.md"]);
     }
 
     #[test]
-    fn list_files_subdir_relative_path() {
+    fn collect_subdir_relative_path() {
         let dir = TempDir::new().unwrap();
         let sub = dir.path().join("decisions");
         write_md(&sub, "2026.md", "# 2026");
+        write_md(&sub.join("nested"), "bar.md", "");
 
-        let entries = list_files_in(dir.path(), &sub).unwrap();
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].path, "decisions/2026.md");
+        let entries = collect(dir.path(), &sub, &[]);
+        let paths: Vec<&str> = entries.iter().map(|e| e.path.as_str()).collect();
+        assert_eq!(paths, vec!["decisions/2026.md", "decisions/nested/bar.md"]);
     }
 
     #[test]
-    fn list_files_sorted_by_modified_desc() {
+    fn collect_skips_dotfile_and_excluded_dirs() {
+        let dir = TempDir::new().unwrap();
+        write_md(dir.path(), "ok.md", "");
+        fs::create_dir_all(dir.path().join(".git")).unwrap();
+        write_md(&dir.path().join(".git"), "secret.md", "");
+        fs::create_dir_all(dir.path().join("node_modules")).unwrap();
+        write_md(&dir.path().join("node_modules"), "junk.md", "");
+
+        let excluded = vec!["node_modules".to_string()];
+        let entries = collect(dir.path(), dir.path(), &excluded);
+        let paths: Vec<&str> = entries.iter().map(|e| e.path.as_str()).collect();
+        assert_eq!(paths, vec!["ok.md"]);
+    }
+
+    #[test]
+    fn collect_sorted_by_modified_desc_via_caller() {
         use std::thread::sleep;
         use std::time::Duration;
         let dir = TempDir::new().unwrap();
         write_md(dir.path(), "old.md", "# old");
         sleep(Duration::from_millis(1100));
-        write_md(dir.path(), "new.md", "# new");
+        write_md(&dir.path().join("sub"), "new.md", "# new");
 
-        let entries = list_files_in(dir.path(), dir.path()).unwrap();
+        let mut entries = Vec::new();
+        collect_files_recursive(dir.path(), dir.path(), &[], &mut entries).unwrap();
+        entries.sort_by(|a, b| b.modified_at.cmp(&a.modified_at));
+
         assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0].path, "new.md");
+        assert_eq!(entries[0].path, "sub/new.md");
         assert_eq!(entries[1].path, "old.md");
     }
 
