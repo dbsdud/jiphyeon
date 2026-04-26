@@ -3,6 +3,9 @@ mod commands;
 mod config;
 mod editor;
 mod error;
+// 모듈 자체는 도입했지만 IPC 연결은 Slice C-3 에서 — 그 전까지 dead_code 경고 억제.
+#[allow(dead_code)]
+mod graphify;
 mod models;
 mod notifications;
 mod project;
