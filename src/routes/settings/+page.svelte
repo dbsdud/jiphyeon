@@ -104,10 +104,13 @@
   {:else}
     <div class="space-y-6">
       <section class="bg-surface-1 border border-border rounded-xl p-5">
-        <h3 class="text-sm font-semibold text-fg mb-3">프로젝트</h3>
+        <h3 class="text-sm font-semibold text-fg mb-3">Hub</h3>
+
+        <div class="text-xs text-fg-muted mb-1">workspace 위치</div>
+        <div class="font-mono text-sm text-fg break-all mb-3">🏠 {config.workspace_path}</div>
 
         <p class="text-xs text-fg-muted">
-          프로젝트 추가/전환/제거는 왼쪽 사이드바의 "📁 프로젝트" 섹션에서 할 수 있습니다.
+          등록한 모든 프로젝트는 이 폴더 아래 symlink 로 노출됩니다. 프로젝트 추가/전환/제거는 왼쪽 사이드바 "📁 프로젝트" 섹션에서 할 수 있습니다.
         </p>
       </section>
 
