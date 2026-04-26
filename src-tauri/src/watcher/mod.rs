@@ -20,6 +20,7 @@ const NOTIFICATIONS_RELATIVE: &str = ".claude/state/notifications.jsonl";
 
 /// 경로가 감시 대상인지 판별.
 /// - notifications.jsonl은 화이트리스트로 우선 허용
+/// - graphify-out 직속 graph.json도 화이트리스트 (graphify-updated 이벤트 트리거)
 /// - 그 외에는 확장자(*.md, *.html) + exclude_dirs 필터
 fn should_watch(path: &Path, vault_root: &Path, exclude_dirs: &[String]) -> bool {
     let relative = match path.strip_prefix(vault_root) {
@@ -27,8 +28,11 @@ fn should_watch(path: &Path, vault_root: &Path, exclude_dirs: &[String]) -> bool
         Err(_) => return false,
     };
 
-    // 알림 파일은 필터 우회
     if relative == Path::new(NOTIFICATIONS_RELATIVE) {
+        return true;
+    }
+
+    if is_graphify_artifact(relative) {
         return true;
     }
 
@@ -53,6 +57,23 @@ fn should_watch(path: &Path, vault_root: &Path, exclude_dirs: &[String]) -> bool
     }
 
     true
+}
+
+/// 경로가 `<...>/graphify-out/graph.json` 또는 `<...>/graphify-out/GRAPH_REPORT.md` 인지.
+fn is_graphify_artifact(relative: &Path) -> bool {
+    let comps: Vec<_> = relative
+        .components()
+        .filter_map(|c| match c {
+            std::path::Component::Normal(s) => s.to_str(),
+            _ => None,
+        })
+        .collect();
+    if comps.len() < 2 {
+        return false;
+    }
+    let parent = comps[comps.len() - 2];
+    let file = comps[comps.len() - 1];
+    parent == "graphify-out" && (file == "graph.json" || file == "GRAPH_REPORT.md")
 }
 
 /// 파일 존재 여부 + 인덱스 존재 여부로 ChangeKind 판별
@@ -119,21 +140,23 @@ pub fn start_watching(
                 }
 
                 let exists_on_disk = path.exists();
-                // debouncer-mini는 이벤트 종류를 구분하지 않으므로
-                // 디스크 존재 여부만으로 Created/Modified/Deleted 판별.
                 let kind = if exists_on_disk {
                     ChangeKind::Modified
                 } else {
                     ChangeKind::Deleted
                 };
-
                 let change = VaultChangeEvent {
                     kind,
                     path: relative_path.to_string_lossy().to_string(),
                 };
 
-                if let Err(e) = app_handle.emit("vault-changed", &change) {
-                    eprintln!("emit error: {e:?}");
+                let event_name = if is_graphify_artifact(relative_path) {
+                    "graphify-updated"
+                } else {
+                    "vault-changed"
+                };
+                if let Err(e) = app_handle.emit(event_name, &change) {
+                    eprintln!("emit error ({event_name}): {e:?}");
                 }
             }
 
@@ -216,6 +239,36 @@ mod tests {
     fn test_should_watch_rejects_outside_vault() {
         let vault = PathBuf::from("/vault");
         let path = PathBuf::from("/other/place/note.md");
+        assert!(!should_watch(&path, &vault, &exclude_dirs()));
+    }
+
+    // --- C-4: graphify-out 직속 graph.json / GRAPH_REPORT.md 화이트리스트 ---
+
+    #[test]
+    fn test_should_watch_allows_graph_json() {
+        let vault = PathBuf::from("/vault");
+        let path = PathBuf::from("/vault/proj/graphify-out/graph.json");
+        assert!(should_watch(&path, &vault, &exclude_dirs()));
+    }
+
+    #[test]
+    fn test_should_watch_allows_graph_report_md() {
+        let vault = PathBuf::from("/vault");
+        let path = PathBuf::from("/vault/proj/graphify-out/GRAPH_REPORT.md");
+        assert!(should_watch(&path, &vault, &exclude_dirs()));
+    }
+
+    #[test]
+    fn test_should_watch_rejects_graphify_subdir_json() {
+        let vault = PathBuf::from("/vault");
+        let path = PathBuf::from("/vault/proj/graphify-out/cache/foo.json");
+        assert!(!should_watch(&path, &vault, &exclude_dirs()));
+    }
+
+    #[test]
+    fn test_should_watch_rejects_other_json() {
+        let vault = PathBuf::from("/vault");
+        let path = PathBuf::from("/vault/proj/package.json");
         assert!(!should_watch(&path, &vault, &exclude_dirs()));
     }
 
