@@ -8,6 +8,9 @@ use tauri::State;
 
 use crate::config::ConfigState;
 use crate::error::AppError;
+use crate::graphify::cross::{
+    merge_graphs, CrossProjectGraph, CrossProjectMember,
+};
 use crate::graphify::reader::{read_graphify_graph, GraphifyError, GraphifyGraph};
 use crate::graphify::report::{read_graphify_report, GraphReport};
 use crate::project::ProjectEntry;
@@ -37,6 +40,61 @@ pub fn get_graphify_report(
 ) -> Result<GraphReport, GraphifyError> {
     let path = active_graphify_out(&state)?;
     read_graphify_report(&path)
+}
+
+#[tauri::command]
+pub fn get_cross_project_graph(
+    state: State<'_, ConfigState>,
+    project_ids: Vec<String>,
+    merge_labels: bool,
+) -> Result<CrossProjectGraph, GraphifyError> {
+    let projects: Vec<ProjectEntry> = {
+        let config = state
+            .read()
+            .map_err(|_| GraphifyError::NotRun)?;
+        if project_ids.is_empty() {
+            config.projects.clone()
+        } else {
+            config
+                .projects
+                .iter()
+                .filter(|p| project_ids.contains(&p.id))
+                .cloned()
+                .collect()
+        }
+    };
+
+    let mut members: Vec<CrossProjectMember> = Vec::new();
+    let mut graphs: Vec<(String, GraphifyGraph)> = Vec::new();
+    for project in &projects {
+        match read_graphify_graph(&project.graphify_out_path) {
+            Ok(g) => {
+                members.push(CrossProjectMember {
+                    project_id: project.id.clone(),
+                    project_name: project.name.clone(),
+                });
+                graphs.push((project.id.clone(), g));
+            }
+            Err(GraphifyError::NotRun) => {
+                // graphify 미실행 프로젝트는 스킵
+                continue;
+            }
+            Err(e) => {
+                eprintln!(
+                    "cross-project graph: {} 파싱 실패 ({}): {e}",
+                    project.name,
+                    project.graphify_out_path.display()
+                );
+                continue;
+            }
+        }
+    }
+
+    if members.is_empty() {
+        return Err(GraphifyError::NotRun);
+    }
+
+    Ok(merge_graphs(&members, graphs, merge_labels))
 }
 
 #[tauri::command]
