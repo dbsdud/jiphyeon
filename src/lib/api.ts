@@ -6,7 +6,9 @@ import type {
   AppConfig,
   AppConfigPatch,
   DetectedEditor,
+  FolderNode,
   ProjectEntry,
+  ProjectFileEntry,
   ProjectInspection,
   RecordingEntry,
 } from "./types";
@@ -41,6 +43,14 @@ export function getActiveProject(): Promise<ProjectEntry | null> {
 
 export function inspectProjectRoot(rootPath: string): Promise<ProjectInspection> {
   return invoke("inspect_project_root", { rootPath });
+}
+
+export function listProjectFiles(subpath: string | null): Promise<ProjectFileEntry[]> {
+  return invoke("list_project_files", { subpath });
+}
+
+export function getProjectFolderTree(): Promise<FolderNode> {
+  return invoke("get_project_folder_tree");
 }
 
 export function registerProject(

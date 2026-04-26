@@ -54,6 +54,14 @@ export interface ProjectEntry {
   last_graphify_at: string | null;
 }
 
+export interface ProjectFileEntry {
+  path: string;
+  title: string;
+  note_type: string | null;
+  modified_at: number;
+  size: number;
+}
+
 export interface ProjectInspection {
   root_path: string;
   root_exists: boolean;
