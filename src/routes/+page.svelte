@@ -1,19 +1,12 @@
 <script lang="ts">
-  import { getVaultStatus } from "$lib/api";
+  import { getActiveProject } from "$lib/api";
   import { vaultRefresh } from "$lib/stores/vault.svelte";
 
-  let vaultName = $state("");
+  let projectName = $state("");
 
-  function deriveName(path: string | null): string {
-    if (!path) return "";
-    const trimmed = path.replace(/\/+$/, "");
-    const idx = trimmed.lastIndexOf("/");
-    return idx >= 0 ? trimmed.slice(idx + 1) : trimmed;
-  }
-
-  async function load() {
-    const v = await getVaultStatus().catch(() => null);
-    vaultName = deriveName(v?.vault_path ?? null);
+  async function load(): Promise<void> {
+    const p = await getActiveProject().catch(() => null);
+    projectName = p?.name ?? "";
   }
 
   $effect(() => {
@@ -25,8 +18,8 @@
 <div class="p-6 max-w-5xl">
   <div class="mb-6">
     <h2 class="text-xl font-semibold">Dashboard</h2>
-    {#if vaultName}
-      <div class="text-sm text-fg-muted mt-1">📓 {vaultName}</div>
+    {#if projectName}
+      <div class="text-sm text-fg-muted mt-1">📁 {projectName}</div>
     {/if}
   </div>
 

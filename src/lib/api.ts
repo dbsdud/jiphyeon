@@ -6,7 +6,11 @@ import type {
   AppConfig,
   AppConfigPatch,
   DetectedEditor,
-  VaultEntry,
+  ExplorerNode,
+  FolderNode,
+  ProjectEntry,
+  ProjectFileEntry,
+  ProjectInspection,
   RecordingEntry,
 } from "./types";
 
@@ -30,17 +34,48 @@ export function clipUrl(request: ClipRequest): Promise<ClipResult> {
   return invoke("clip_url", { request });
 }
 
-export interface VaultStatus {
-  connected: boolean;
-  vault_path: string | null;
+export function listProjects(): Promise<ProjectEntry[]> {
+  return invoke("list_projects");
 }
 
-export function getVaultStatus(): Promise<VaultStatus> {
-  return invoke("get_vault_status");
+export function getActiveProject(): Promise<ProjectEntry | null> {
+  return invoke("get_active_project");
 }
 
-export function connectVault(path: string): Promise<VaultStatus> {
-  return invoke("connect_vault", { path });
+export function inspectProjectRoot(rootPath: string): Promise<ProjectInspection> {
+  return invoke("inspect_project_root", { rootPath });
+}
+
+export function listProjectFiles(subpath: string | null): Promise<ProjectFileEntry[]> {
+  return invoke("list_project_files", { subpath });
+}
+
+export function getProjectFolderTree(): Promise<FolderNode> {
+  return invoke("get_project_folder_tree");
+}
+
+export function getProjectExplorerTree(): Promise<ExplorerNode> {
+  return invoke("get_project_explorer_tree");
+}
+
+export function registerProject(
+  rootPath: string,
+  name: string | null,
+  createDocs: boolean,
+): Promise<ProjectEntry> {
+  return invoke("register_project", {
+    rootPath,
+    name,
+    createDocs,
+  });
+}
+
+export function switchProject(id: string): Promise<ProjectEntry> {
+  return invoke("switch_project", { id });
+}
+
+export function removeProject(id: string): Promise<ProjectEntry[]> {
+  return invoke("remove_project", { id });
 }
 
 export function getConfig(): Promise<AppConfig> {
@@ -53,18 +88,6 @@ export function updateConfig(patch: AppConfigPatch): Promise<AppConfig> {
 
 export function detectEditors(): Promise<DetectedEditor[]> {
   return invoke("detect_editors");
-}
-
-export function listVaults(): Promise<VaultEntry[]> {
-  return invoke("list_vaults");
-}
-
-export function switchVault(path: string): Promise<VaultStatus> {
-  return invoke("switch_vault", { path });
-}
-
-export function removeVault(path: string): Promise<VaultEntry[]> {
-  return invoke("remove_vault", { path });
 }
 
 export function saveRecording(filename: string, bytes: Uint8Array): Promise<string> {

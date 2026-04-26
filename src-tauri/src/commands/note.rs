@@ -10,6 +10,8 @@ use crate::error::AppError;
 use crate::models::RenderedNote;
 use crate::vault::renderer;
 
+const QUICK_NOTE_FOLDER: &str = "inbox";
+
 #[tauri::command]
 pub fn get_note(
     config_state: State<'_, ConfigState>,
@@ -18,16 +20,13 @@ pub fn get_note(
     let config = config_state
         .read()
         .map_err(|e| AppError::NoteNotFound(e.to_string()))?;
-    let vault_path = config
-        .vault_path
-        .as_ref()
-        .ok_or(AppError::VaultNotConfigured)?;
-    let abs_path = vault_path.join(&path);
+    let project = config.active_project().ok_or(AppError::VaultNotConfigured)?;
+    let abs_path = project.docs_path.join(&path);
     if !abs_path.exists() {
         return Err(AppError::NoteNotFound(path));
     }
 
-    renderer::render_note(&abs_path, vault_path, &[])
+    renderer::render_note(&abs_path, &project.docs_path, &[])
 }
 
 #[tauri::command]
@@ -39,11 +38,8 @@ pub fn open_in_editor(
     let config = config_state
         .read()
         .map_err(|e| AppError::NoteNotFound(e.to_string()))?;
-    let vault_path = config
-        .vault_path
-        .as_ref()
-        .ok_or(AppError::VaultNotConfigured)?;
-    let abs_path = vault_path.join(&path);
+    let project = config.active_project().ok_or(AppError::VaultNotConfigured)?;
+    let abs_path = project.docs_path.join(&path);
     if !abs_path.exists() {
         return Err(AppError::NoteNotFound(path));
     }
@@ -76,6 +72,7 @@ pub fn create_quick_note(
     let config = config_state
         .read()
         .map_err(|e| AppError::NoteNotFound(e.to_string()))?;
+    let project = config.active_project().ok_or(AppError::VaultNotConfigured)?;
     let today = Local::now().format("%Y-%m-%d").to_string();
 
     let filename = match &title {
@@ -89,15 +86,10 @@ pub fn create_quick_note(
         }
     };
 
-    let vault_path = config
-        .vault_path
-        .as_ref()
-        .ok_or(AppError::VaultNotConfigured)?;
-    let inbox_dir = vault_path.join(&config.quick_note_folder);
+    let inbox_dir = project.docs_path.join(QUICK_NOTE_FOLDER);
     fs::create_dir_all(&inbox_dir)?;
 
     let mut file_path = inbox_dir.join(&filename);
-
     let mut counter = 1;
     while file_path.exists() {
         let stem = filename.trim_end_matches(".md");
@@ -125,86 +117,10 @@ pub fn create_quick_note(
     fs::write(&file_path, &note_content)?;
 
     let relative_path = file_path
-        .strip_prefix(vault_path)
+        .strip_prefix(&project.docs_path)
         .unwrap_or(&file_path)
         .to_string_lossy()
         .to_string();
 
     Ok(relative_path)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::config::AppConfig;
-    use tempfile::TempDir;
-
-    fn test_config(dir: &TempDir) -> AppConfig {
-        AppConfig {
-            vault_path: Some(dir.path().to_path_buf()),
-            quick_note_folder: "inbox".to_string(),
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn creates_note_with_title() {
-        let dir = TempDir::new().unwrap();
-        let config = test_config(&dir);
-        let today = Local::now().format("%Y-%m-%d").to_string();
-
-        let inbox_dir = config.vault_path.as_ref().unwrap().join("inbox");
-        fs::create_dir_all(&inbox_dir).unwrap();
-
-        let slug = slug::slugify("오늘의 메모");
-        let filename = format!("{}-{}.md", today, slug);
-        let file_path = inbox_dir.join(&filename);
-
-        let content = format!(
-            "---\ntype: idea\ncreated: {}\nstatus: seedling\ntags:\n  - dev\n---\n\n# 오늘의 메모\n\ntest content",
-            today
-        );
-        fs::write(&file_path, &content).unwrap();
-
-        assert!(file_path.exists());
-        let saved = fs::read_to_string(&file_path).unwrap();
-        assert!(saved.contains("type: idea"));
-        assert!(saved.contains("# 오늘의 메모"));
-        assert!(saved.contains("test content"));
-        assert!(saved.contains("  - dev"));
-    }
-
-    #[test]
-    fn creates_note_without_title() {
-        let dir = TempDir::new().unwrap();
-        let config = test_config(&dir);
-        let today = Local::now().format("%Y-%m-%d").to_string();
-
-        let inbox_dir = config.vault_path.as_ref().unwrap().join("inbox");
-        fs::create_dir_all(&inbox_dir).unwrap();
-
-        let timestamp = Local::now().format("%H%M%S").to_string();
-        let filename = format!("{}-{}.md", today, timestamp);
-        let file_path = inbox_dir.join(&filename);
-
-        let content = format!(
-            "---\ntype: idea\ncreated: {}\nstatus: seedling\ntags: []\n---\n\n# Quick Note\n\nmy quick note",
-            today
-        );
-        fs::write(&file_path, &content).unwrap();
-
-        assert!(file_path.exists());
-        let saved = fs::read_to_string(&file_path).unwrap();
-        assert!(saved.contains("# Quick Note"));
-    }
-
-    #[test]
-    fn inbox_auto_created() {
-        let dir = TempDir::new().unwrap();
-        let inbox_dir = dir.path().join("inbox");
-        assert!(!inbox_dir.exists());
-
-        fs::create_dir_all(&inbox_dir).unwrap();
-        assert!(inbox_dir.exists());
-    }
 }

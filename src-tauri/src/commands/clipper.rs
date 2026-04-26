@@ -13,9 +13,6 @@ pub fn clip_url(
     let config = config_state
         .read()
         .map_err(|e| AppError::VaultNotFound(e.to_string()))?;
-    let vault_path = config
-        .vault_path
-        .as_ref()
-        .ok_or(AppError::VaultNotConfigured)?;
-    clipper::clip_url(&request, vault_path)
+    let project = config.active_project().ok_or(AppError::VaultNotConfigured)?;
+    clipper::clip_url(&request, &project.docs_path)
 }

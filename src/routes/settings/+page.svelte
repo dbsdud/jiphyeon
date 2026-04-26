@@ -18,13 +18,11 @@
 
   let editorCommand = $state("");
   let excludeDirsInput = $state("");
-  let recentNotesLimit = $state(20);
   let globalShortcut = $state("");
-  let quickNoteFolder = $state("");
   let density = $state<Density>("regular");
   let theme = $state<ThemePreference>("system");
 
-  async function load() {
+  async function load(): Promise<void> {
     loading = true;
     error = "";
     try {
@@ -33,9 +31,7 @@
       editors = eds;
       editorCommand = cfg.editor_command;
       excludeDirsInput = cfg.exclude_dirs.join(", ");
-      recentNotesLimit = cfg.recent_notes_limit;
       globalShortcut = cfg.global_shortcut;
-      quickNoteFolder = cfg.quick_note_folder;
       density = cfg.density;
       theme = cfg.theme;
     } catch (e) {
@@ -73,9 +69,7 @@
     const patch: AppConfigPatch = {
       editor_command: editorCommand,
       exclude_dirs: excludeDirs,
-      recent_notes_limit: recentNotesLimit,
       global_shortcut: globalShortcut,
-      quick_note_folder: quickNoteFolder,
       density,
       theme,
     };
@@ -110,15 +104,10 @@
   {:else}
     <div class="space-y-6">
       <section class="bg-surface-1 border border-border rounded-xl p-5">
-        <h3 class="text-sm font-semibold text-fg mb-3">볼트</h3>
-
-        <div class="text-xs text-fg-muted mb-1">현재 연결된 볼트</div>
-        <div class="font-mono text-sm text-fg break-all mb-2">
-          {config.vault_path ?? "(연결 안 됨)"}
-        </div>
+        <h3 class="text-sm font-semibold text-fg mb-3">프로젝트</h3>
 
         <p class="text-xs text-fg-muted">
-          볼트 추가/전환/제거는 왼쪽 사이드바의 "📓 볼트" 섹션에서 할 수 있습니다.
+          프로젝트 추가/전환/제거는 왼쪽 사이드바의 "📁 프로젝트" 섹션에서 할 수 있습니다.
         </p>
       </section>
 
@@ -255,12 +244,12 @@
       </section>
 
       <section class="bg-surface-1 border border-border rounded-xl p-5">
-        <h3 class="text-sm font-semibold text-fg mb-3">인덱싱</h3>
+        <h3 class="text-sm font-semibold text-fg mb-3">감시</h3>
 
         <label for="exclude-dirs" class="text-xs text-fg-muted block mb-1">
           제외할 디렉토리 (쉼표 구분)
           <span class="text-fg-muted/70">
-            — 변경사항은 앱 재시작 또는 rescan 시 반영
+            — 변경사항은 앱 재시작 후 반영
           </span>
         </label>
         <input
@@ -269,31 +258,7 @@
           class="w-full bg-surface-0 border border-border rounded px-3 py-2 text-sm text-fg font-mono
                  focus:border-accent focus:outline-none mb-3"
           bind:value={excludeDirsInput}
-          placeholder=".git, .claude, _templates"
-        />
-
-        <label for="recent-limit" class="text-xs text-fg-muted block mb-1">최근 노트 개수</label>
-        <input
-          id="recent-limit"
-          type="number"
-          min="1"
-          max="200"
-          class="w-32 bg-surface-0 border border-border rounded px-3 py-2 text-sm text-fg
-                 focus:border-accent focus:outline-none"
-          bind:value={recentNotesLimit}
-        />
-      </section>
-
-      <section class="bg-surface-1 border border-border rounded-xl p-5">
-        <h3 class="text-sm font-semibold text-fg mb-3">퀵 노트</h3>
-
-        <label for="quick-folder" class="text-xs text-fg-muted block mb-1">저장 폴더</label>
-        <input
-          id="quick-folder"
-          type="text"
-          class="w-full bg-surface-0 border border-border rounded px-3 py-2 text-sm text-fg font-mono
-                 focus:border-accent focus:outline-none mb-3"
-          bind:value={quickNoteFolder}
+          placeholder=".git, .claude, node_modules"
         />
 
         <label for="global-shortcut" class="text-xs text-fg-muted block mb-1">

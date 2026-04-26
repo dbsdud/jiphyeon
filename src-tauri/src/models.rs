@@ -103,3 +103,37 @@ pub struct VaultChangeEvent {
     pub kind: ChangeKind,
     pub path: String,
 }
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ProjectFileEntry {
+    pub path: String,
+    pub title: String,
+    pub note_type: Option<String>,
+    pub modified_at: i64,
+    pub size: u64,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ProjectFolderNode {
+    pub name: String,
+    pub path: String,
+    pub note_count: usize,
+    pub children: Vec<ProjectFolderNode>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ExplorerKind {
+    Folder,
+    File,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ExplorerNode {
+    pub kind: ExplorerKind,
+    pub name: String,
+    pub path: String,
+    pub children: Vec<ExplorerNode>,
+    pub note_type: Option<String>,
+    pub modified_at: Option<i64>,
+}

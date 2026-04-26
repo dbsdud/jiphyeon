@@ -6,7 +6,6 @@ use notify::RecursiveMode;
 use notify_debouncer_mini::new_debouncer;
 use tauri::{AppHandle, Emitter};
 
-use crate::config::AppConfig;
 use crate::error::AppError;
 use crate::models::{ChangeKind, VaultChangeEvent};
 use crate::notifications::{collect_new_events, NotificationsState};
@@ -72,19 +71,17 @@ pub struct VaultWatcher {
     _debouncer: notify_debouncer_mini::Debouncer<notify::RecommendedWatcher>,
 }
 
-/// 볼트 감시 시작. `notifications_state`는 시작 시점에 현재 라인 수로 `reset`되어
+/// 활성 프로젝트 root 감시 시작. `notifications_state`는 시작 시점에 현재 라인 수로 `reset`되어
 /// 기존 notifications.jsonl 백로그가 발화되지 않도록 한다.
 pub fn start_watching(
     app_handle: AppHandle,
-    config: &AppConfig,
+    project_root: &std::path::Path,
+    exclude_dirs: &[String],
+    debounce_ms: u64,
     notifications_state: NotificationsState,
 ) -> Result<VaultWatcher, AppError> {
-    let vault_root = config
-        .vault_path
-        .clone()
-        .ok_or(AppError::VaultNotConfigured)?;
-    let exclude_dirs = config.exclude_dirs.clone();
-    let debounce_ms = config.watch_debounce_ms;
+    let vault_root = project_root.to_path_buf();
+    let exclude_dirs = exclude_dirs.to_vec();
 
     // 시작 시점 오프셋을 현재 라인 수로 동기화 (백로그 플러시 방지).
     {

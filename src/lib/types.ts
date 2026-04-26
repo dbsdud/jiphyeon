@@ -27,8 +27,99 @@ export interface RecordingEntry {
   modified_at: number;
 }
 
+export interface ClipRequest {
+  url: string;
+  tags?: string[];
+}
+
+export interface ClipResult {
+  path: string;
+  title: string;
+  success: boolean;
+  error?: string;
+}
+
+export type Density = "regular" | "compact";
+export type ThemePreference = "light" | "dark" | "system";
+/** resolved(실제 적용) 테마 — system은 OS 설정으로 계산된 값. */
+export type ResolvedTheme = "light" | "dark";
+
+export interface ProjectEntry {
+  id: string;
+  name: string;
+  root_path: string;
+  docs_path: string;
+  graphify_out_path: string;
+  registered_at: string;
+  last_graphify_at: string | null;
+}
+
+export interface ProjectFileEntry {
+  path: string;
+  title: string;
+  note_type: string | null;
+  modified_at: number;
+  size: number;
+}
+
+export type ExplorerKind = "folder" | "file";
+
+export interface ExplorerNode {
+  kind: ExplorerKind;
+  name: string;
+  path: string;
+  children: ExplorerNode[];
+  note_type: string | null;
+  modified_at: number | null;
+}
+
+export interface ProjectInspection {
+  root_path: string;
+  root_exists: boolean;
+  docs_exists: boolean;
+  docs_is_dir: boolean;
+  graphify_out_exists: boolean;
+  already_registered: boolean;
+  suggested_name: string;
+}
+
+export interface AppConfig {
+  projects: ProjectEntry[];
+  active_project_id: string | null;
+  watch_debounce_ms: number;
+  exclude_dirs: string[];
+  editor_command: string;
+  global_shortcut: string;
+  density: Density;
+  theme: ThemePreference;
+  sidebar_collapsed: boolean;
+}
+
+export interface AppConfigPatch {
+  editor_command?: string;
+  exclude_dirs?: string[];
+  global_shortcut?: string;
+  density?: Density;
+  theme?: ThemePreference;
+  sidebar_collapsed?: boolean;
+}
+
+export interface DetectedEditor {
+  id: string;
+  label: string;
+  command: string;
+}
+
+export type NotificationLevel = "info" | "warn" | "error" | "success";
+
+export interface NotificationEvent {
+  level: NotificationLevel;
+  message: string;
+  source?: string | null;
+  ts?: string | null;
+}
+
 // Epic B-3 (FolderTree)·C-5 (LinkGraph) 재활용 대기 타입.
-// Rust 백엔드의 대응 구조체는 Epic 진입 시 graphify 노드 기반으로 재작성 예정.
 export interface GraphNode {
   id: string;
   path: string;
@@ -53,65 +144,4 @@ export interface FolderNode {
   path: string;
   note_count: number;
   children: FolderNode[];
-}
-
-export interface ClipRequest {
-  url: string;
-  tags?: string[];
-}
-
-export interface ClipResult {
-  path: string;
-  title: string;
-  success: boolean;
-  error?: string;
-}
-
-export type Density = "regular" | "compact";
-export type ThemePreference = "light" | "dark" | "system";
-/** resolved(실제 적용) 테마 — system은 OS 설정으로 계산된 값. */
-export type ResolvedTheme = "light" | "dark";
-
-export interface AppConfig {
-  vault_path: string | null;
-  watch_debounce_ms: number;
-  recent_notes_limit: number;
-  exclude_dirs: string[];
-  editor_command: string;
-  quick_note_folder: string;
-  global_shortcut: string;
-  density: Density;
-  theme: ThemePreference;
-  sidebar_collapsed: boolean;
-}
-
-export interface AppConfigPatch {
-  editor_command?: string;
-  exclude_dirs?: string[];
-  recent_notes_limit?: number;
-  global_shortcut?: string;
-  quick_note_folder?: string;
-  density?: Density;
-  theme?: ThemePreference;
-  sidebar_collapsed?: boolean;
-}
-
-export interface DetectedEditor {
-  id: string;
-  label: string;
-  command: string;
-}
-
-export interface VaultEntry {
-  path: string;
-  name: string;
-}
-
-export type NotificationLevel = "info" | "warn" | "error" | "success";
-
-export interface NotificationEvent {
-  level: NotificationLevel;
-  message: string;
-  source?: string | null;
-  ts?: string | null;
 }
