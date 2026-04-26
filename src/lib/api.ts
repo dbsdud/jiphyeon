@@ -6,6 +6,7 @@ import type {
   AppConfig,
   AppConfigPatch,
   DetectedEditor,
+  ExplorerNode,
   FolderNode,
   ProjectEntry,
   ProjectFileEntry,
@@ -51,6 +52,10 @@ export function listProjectFiles(subpath: string | null): Promise<ProjectFileEnt
 
 export function getProjectFolderTree(): Promise<FolderNode> {
   return invoke("get_project_folder_tree");
+}
+
+export function getProjectExplorerTree(): Promise<ExplorerNode> {
+  return invoke("get_project_explorer_tree");
 }
 
 export function registerProject(

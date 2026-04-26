@@ -120,3 +120,20 @@ pub struct ProjectFolderNode {
     pub note_count: usize,
     pub children: Vec<ProjectFolderNode>,
 }
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ExplorerKind {
+    Folder,
+    File,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ExplorerNode {
+    pub kind: ExplorerKind,
+    pub name: String,
+    pub path: String,
+    pub children: Vec<ExplorerNode>,
+    pub note_type: Option<String>,
+    pub modified_at: Option<i64>,
+}

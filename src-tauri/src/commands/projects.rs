@@ -9,7 +9,7 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::config::{save_config, ConfigState};
 use crate::error::AppError;
-use crate::models::{ProjectFileEntry, ProjectFolderNode};
+use crate::models::{ExplorerKind, ExplorerNode, ProjectFileEntry, ProjectFolderNode};
 use crate::notifications::NotificationsState;
 use crate::project::{
     derive_project_id, derive_project_name, new_project_entry, normalize_root,
@@ -245,6 +245,37 @@ pub fn list_project_files(
 }
 
 #[tauri::command]
+pub fn get_project_explorer_tree(
+    config_state: State<'_, ConfigState>,
+) -> Result<ExplorerNode, AppError> {
+    let (docs_path, exclude_dirs) = {
+        let config = config_state
+            .read()
+            .map_err(|e| AppError::VaultNotFound(e.to_string()))?;
+        let project = config.active_project().ok_or(AppError::VaultNotConfigured)?;
+        (project.docs_path.clone(), config.exclude_dirs.clone())
+    };
+
+    if !docs_path.is_dir() {
+        return Ok(ExplorerNode {
+            kind: ExplorerKind::Folder,
+            name: "docs".to_string(),
+            path: String::new(),
+            children: Vec::new(),
+            note_type: None,
+            modified_at: None,
+        });
+    }
+
+    let excluded: Vec<String> = exclude_dirs
+        .into_iter()
+        .chain(DEFAULT_EXCLUDE_TREE_DIRS.iter().map(|s| s.to_string()))
+        .collect();
+
+    Ok(build_explorer_node(&docs_path, "docs", "", &excluded))
+}
+
+#[tauri::command]
 pub fn get_project_folder_tree(
     config_state: State<'_, ConfigState>,
 ) -> Result<ProjectFolderNode, AppError> {
@@ -447,6 +478,93 @@ fn build_folder_node(
         path: rel_path.to_string(),
         note_count,
         children: child_nodes,
+    }
+}
+
+/// docs/ 를 walk 하여 폴더와 .md 파일을 같은 트리 노드로 합친다.
+/// 폴더는 children 보유, 파일은 leaf. 정렬: 폴더 먼저(알파벳), 파일 뒤(알파벳).
+fn build_explorer_node(
+    abs_path: &Path,
+    name: &str,
+    rel_path: &str,
+    exclude_dirs: &[String],
+) -> ExplorerNode {
+    let mut folders: Vec<ExplorerNode> = Vec::new();
+    let mut files: Vec<ExplorerNode> = Vec::new();
+
+    let Ok(read) = fs::read_dir(abs_path) else {
+        return ExplorerNode {
+            kind: ExplorerKind::Folder,
+            name: name.to_string(),
+            path: rel_path.to_string(),
+            children: Vec::new(),
+            note_type: None,
+            modified_at: None,
+        };
+    };
+
+    for entry in read.flatten() {
+        let path = entry.path();
+        let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+
+        if path.is_dir() {
+            if file_name.starts_with('.') {
+                continue;
+            }
+            if exclude_dirs.iter().any(|d| d == file_name) {
+                continue;
+            }
+            let child_rel = if rel_path.is_empty() {
+                file_name.to_string()
+            } else {
+                format!("{}/{}", rel_path, file_name)
+            };
+            folders.push(build_explorer_node(&path, file_name, &child_rel, exclude_dirs));
+        } else if path.is_file() {
+            let ext = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|s| s.to_ascii_lowercase())
+                .unwrap_or_default();
+            if ext != "md" {
+                continue;
+            }
+            let modified_at = entry
+                .metadata()
+                .ok()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                .map(|d| d.as_secs() as i64);
+            let (title, note_type) = read_title_and_type(&path);
+            let child_rel = if rel_path.is_empty() {
+                file_name.to_string()
+            } else {
+                format!("{}/{}", rel_path, file_name)
+            };
+            files.push(ExplorerNode {
+                kind: ExplorerKind::File,
+                name: title,
+                path: child_rel,
+                children: Vec::new(),
+                note_type,
+                modified_at,
+            });
+        }
+    }
+
+    folders.sort_by(|a, b| a.name.cmp(&b.name));
+    files.sort_by(|a, b| a.name.cmp(&b.name));
+    folders.extend(files);
+
+    ExplorerNode {
+        kind: ExplorerKind::Folder,
+        name: name.to_string(),
+        path: rel_path.to_string(),
+        children: folders,
+        note_type: None,
+        modified_at: None,
     }
 }
 
@@ -784,6 +902,74 @@ mod tests {
         let tree = build_folder_node(dir.path(), "docs", "", &[]);
         let names: Vec<&str> = tree.children.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, vec!["alpha", "mu", "zeta"]);
+    }
+
+    // --- build_explorer_node ---
+
+    #[test]
+    fn explorer_tree_mixes_folders_and_files() {
+        let dir = TempDir::new().unwrap();
+        write_md(dir.path(), "a.md", "");
+        write_md(dir.path(), "b.md", "");
+        write_md(&dir.path().join("sub"), "c.md", "");
+
+        let tree = build_explorer_node(dir.path(), "docs", "", &[]);
+        assert_eq!(tree.kind, ExplorerKind::Folder);
+        // 폴더 먼저, 파일 뒤
+        assert_eq!(tree.children.len(), 3);
+        assert_eq!(tree.children[0].kind, ExplorerKind::Folder);
+        assert_eq!(tree.children[0].name, "sub");
+        assert_eq!(tree.children[1].kind, ExplorerKind::File);
+        assert_eq!(tree.children[2].kind, ExplorerKind::File);
+    }
+
+    #[test]
+    fn explorer_file_uses_frontmatter_title() {
+        let dir = TempDir::new().unwrap();
+        let p = dir.path().join("note.md");
+        fs::write(
+            &p,
+            "---\ntype: decision\ncreated: 2026-04-26\ntitle: Pretty Title\n---\n",
+        )
+        .unwrap();
+
+        let tree = build_explorer_node(dir.path(), "docs", "", &[]);
+        assert_eq!(tree.children.len(), 1);
+        let f = &tree.children[0];
+        assert_eq!(f.kind, ExplorerKind::File);
+        assert_eq!(f.name, "Pretty Title");
+        assert_eq!(f.path, "note.md");
+        assert_eq!(f.note_type.as_deref(), Some("decision"));
+        assert!(f.modified_at.is_some());
+    }
+
+    #[test]
+    fn explorer_skips_dotfile_excluded_and_non_md() {
+        let dir = TempDir::new().unwrap();
+        write_md(dir.path(), "ok.md", "");
+        write_md(dir.path(), "junk.txt", "");
+        fs::create_dir_all(dir.path().join(".git")).unwrap();
+        write_md(&dir.path().join(".git"), "secret.md", "");
+        fs::create_dir_all(dir.path().join("node_modules")).unwrap();
+
+        let excluded = vec!["node_modules".to_string()];
+        let tree = build_explorer_node(dir.path(), "docs", "", &excluded);
+        let names: Vec<&str> = tree.children.iter().map(|n| n.name.as_str()).collect();
+        assert_eq!(names, vec!["ok"]);
+    }
+
+    #[test]
+    fn explorer_nested_paths() {
+        let dir = TempDir::new().unwrap();
+        write_md(&dir.path().join("a/b"), "leaf.md", "");
+        let tree = build_explorer_node(dir.path(), "docs", "", &[]);
+        let a = &tree.children[0];
+        let b = &a.children[0];
+        let leaf = &b.children[0];
+        assert_eq!(a.path, "a");
+        assert_eq!(b.path, "a/b");
+        assert_eq!(leaf.kind, ExplorerKind::File);
+        assert_eq!(leaf.path, "a/b/leaf.md");
     }
 
     #[test]

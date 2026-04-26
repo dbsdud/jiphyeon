@@ -103,6 +103,7 @@ pub fn run() {
             commands::projects::inspect_project_root,
             commands::projects::list_project_files,
             commands::projects::get_project_folder_tree,
+            commands::projects::get_project_explorer_tree,
             commands::settings::get_config,
             commands::settings::update_config,
             commands::settings::detect_editors,

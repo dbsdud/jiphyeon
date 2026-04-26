@@ -62,6 +62,17 @@ export interface ProjectFileEntry {
   size: number;
 }
 
+export type ExplorerKind = "folder" | "file";
+
+export interface ExplorerNode {
+  kind: ExplorerKind;
+  name: string;
+  path: string;
+  children: ExplorerNode[];
+  note_type: string | null;
+  modified_at: number | null;
+}
+
 export interface ProjectInspection {
   root_path: string;
   root_exists: boolean;
