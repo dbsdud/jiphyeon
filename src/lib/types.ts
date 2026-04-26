@@ -63,6 +63,97 @@ export interface ProjectFileEntry {
   size: number;
 }
 
+// --- graphify-out 도메인 (Slice C-3 부터) ---
+
+export type GraphifyConfidence = "EXTRACTED" | "INFERRED" | "AMBIGUOUS" | "UNKNOWN";
+
+export interface GraphifyNode {
+  id: string;
+  label: string;
+  file_type: string | null;
+  source_file: string | null;
+  source_location: string | null;
+  community: number | null;
+  norm_label: string | null;
+}
+
+export interface GraphifyEdge {
+  source: string;
+  target: string;
+  relation: string;
+  confidence: GraphifyConfidence;
+  confidence_score: number;
+  source_file: string | null;
+  weight: number;
+}
+
+export interface GraphifyHyperedge {
+  id: string;
+  label: string;
+  nodes: string[];
+  relation: string;
+  confidence: GraphifyConfidence;
+  confidence_score: number;
+  source_file: string | null;
+}
+
+export interface GraphifyGraph {
+  nodes: GraphifyNode[];
+  edges: GraphifyEdge[];
+  hyperedges: GraphifyHyperedge[];
+}
+
+export interface GraphReportSummary {
+  nodes_count: number | null;
+  edges_count: number | null;
+  communities_count: number | null;
+  extracted_pct: number | null;
+  inferred_pct: number | null;
+  ambiguous_pct: number | null;
+  token_input: number | null;
+  token_output: number | null;
+}
+
+export interface GraphReportGodNode {
+  rank: number;
+  name: string;
+  edge_count: number;
+}
+
+export interface GraphReportSurprisingConnection {
+  source: string;
+  target: string;
+  relation: string;
+  confidence: GraphifyConfidence;
+}
+
+export interface GraphReportCommunity {
+  id: number;
+  label: string;
+  cohesion: number | null;
+  nodes_count: number | null;
+  sample_nodes: string[];
+}
+
+export interface GraphReport {
+  generated_at: string | null;
+  project_root: string | null;
+  summary: GraphReportSummary;
+  god_nodes: GraphReportGodNode[];
+  surprising_connections: GraphReportSurprisingConnection[];
+  communities: GraphReportCommunity[];
+}
+
+export interface GraphifyStatus {
+  project_id: string | null;
+  graphify_out_path: string | null;
+  graph_json_exists: boolean;
+  report_md_exists: boolean;
+  last_run_at: string | null;
+  nodes_count: number | null;
+  edges_count: number | null;
+}
+
 export type ExplorerKind = "folder" | "file";
 
 export interface ExplorerNode {

@@ -1,4 +1,5 @@
 pub mod clipper;
+pub mod graphify;
 pub mod note;
 pub mod projects;
 pub mod settings;

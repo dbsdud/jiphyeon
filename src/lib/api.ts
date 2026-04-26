@@ -8,6 +8,9 @@ import type {
   DetectedEditor,
   ExplorerNode,
   FolderNode,
+  GraphifyGraph,
+  GraphifyStatus,
+  GraphReport,
   ProjectEntry,
   ProjectFileEntry,
   ProjectInspection,
@@ -56,6 +59,18 @@ export function getProjectFolderTree(): Promise<FolderNode> {
 
 export function getProjectExplorerTree(): Promise<ExplorerNode> {
   return invoke("get_project_explorer_tree");
+}
+
+export function getGraphifyGraph(): Promise<GraphifyGraph> {
+  return invoke("get_graphify_graph");
+}
+
+export function getGraphifyReport(): Promise<GraphReport> {
+  return invoke("get_graphify_report");
+}
+
+export function getGraphifyStatus(): Promise<GraphifyStatus> {
+  return invoke("get_graphify_status");
 }
 
 export function registerProject(
