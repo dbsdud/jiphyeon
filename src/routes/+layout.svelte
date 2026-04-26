@@ -8,6 +8,7 @@
   import AddProjectModal from "$lib/components/AddProjectModal.svelte";
   import {
     getActiveProject,
+    getPendingGraphify,
     listProjects,
     switchProject,
     removeProject,
@@ -16,6 +17,7 @@
     updateConfig,
   } from "$lib/api";
   import type {
+    PendingGraphify,
     ProjectEntry,
     NotificationEvent,
     NotificationLevel,
@@ -135,6 +137,40 @@
   let activeProject = $state<ProjectEntry | null>(null);
   let activeProjectLoaded = $state(false);
   let projects = $state<ProjectEntry[]>([]);
+  let pending = $state<PendingGraphify | null>(null);
+
+  async function refreshPending(): Promise<void> {
+    try {
+      pending = await getPendingGraphify();
+    } catch (e) {
+      console.warn("get_pending_graphify failed", e);
+      pending = null;
+    }
+  }
+
+  $effect(() => {
+    vaultRefresh.version;
+    refreshPending();
+  });
+
+  function pendingDotClass(status: string | null | undefined): string {
+    switch (status) {
+      case "fresh": return "bg-success";
+      case "stale": return "bg-warning";
+      case "not_run": return "bg-fg-muted";
+      default: return "hidden";
+    }
+  }
+
+  function pendingTooltip(p: PendingGraphify | null): string {
+    if (!p) return "";
+    switch (p.status) {
+      case "fresh": return "graphify 최신";
+      case "stale": return `${p.changed_files_count}개 파일 변경 — graphify 재실행 권장`;
+      case "not_run": return "graphify 미실행";
+      default: return "";
+    }
+  }
   let addVaultOpen = $state(false);
   let vaultActionBusy = $state(false);
 
@@ -287,6 +323,13 @@
               >
                 <span class="shrink-0 text-xs">{isActive ? '●' : '○'}</span>
                 <span class="sidebar-vault-name truncate">{project.name}</span>
+                {#if isActive && pending}
+                  <span
+                    class="inline-block w-2 h-2 rounded-full shrink-0 ml-auto {pendingDotClass(pending.status)}"
+                    title={pendingTooltip(pending)}
+                    aria-label={pendingTooltip(pending)}
+                  ></span>
+                {/if}
               </button>
               {#if !isActive}
                 <button

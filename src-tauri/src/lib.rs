@@ -118,6 +118,7 @@ pub fn run() {
             commands::graphify::get_graphify_report,
             commands::graphify::get_graphify_status,
             commands::graphify::get_cross_project_graph,
+            commands::graphify::get_pending_graphify,
             commands::projects::list_projects,
             commands::projects::register_project,
             commands::projects::switch_project,

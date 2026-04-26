@@ -12,6 +12,7 @@ import type {
   GraphifyGraph,
   GraphifyStatus,
   GraphReport,
+  PendingGraphify,
   ProjectEntry,
   ProjectFileEntry,
   ProjectInspection,
@@ -76,6 +77,10 @@ export function getGraphifyReport(): Promise<GraphReport> {
 
 export function getGraphifyStatus(): Promise<GraphifyStatus> {
   return invoke("get_graphify_status");
+}
+
+export function getPendingGraphify(): Promise<PendingGraphify> {
+  return invoke("get_pending_graphify");
 }
 
 export function getCrossProjectGraph(
