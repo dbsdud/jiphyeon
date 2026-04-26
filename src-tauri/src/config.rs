@@ -5,6 +5,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::error::AppError;
 use crate::project::ProjectEntry;
+use crate::workspace::default_workspace_path;
 
 /// UI 밀도 모드.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -27,6 +28,9 @@ pub enum ThemePreference {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
+    /// v2.5 hub 디렉토리. 등록된 모든 프로젝트가 이 폴더 아래 symlink 로 노출됨.
+    #[serde(default = "default_workspace_path")]
+    pub workspace_path: PathBuf,
     /// 등록된 프로젝트 레지스트리.
     #[serde(default)]
     pub projects: Vec<ProjectEntry>,
@@ -48,6 +52,7 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
+            workspace_path: default_workspace_path(),
             projects: Vec::new(),
             active_project_id: None,
             watch_debounce_ms: 500,
@@ -283,7 +288,11 @@ mod tests {
 
     #[test]
     fn active_project_returns_entry_when_set() {
-        let entry = crate::project::new_project_entry(PathBuf::from("/tmp/p"), None);
+        let entry = crate::project::new_project_entry(
+            PathBuf::from("/tmp/p"),
+            PathBuf::from("/tmp/p"),
+            None,
+        );
         let id = entry.id.clone();
         let config = AppConfig {
             projects: vec![entry.clone()],
