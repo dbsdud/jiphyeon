@@ -46,3 +46,19 @@
 1. `LinkGraph.svelte` props 교체 + 색상/엣지 규칙 갱신, `graph-filter.ts` 의존 제거
 2. `/graph/+page.svelte` 재작성 (status 분기 + 그래프 + 검색/community 필터)
 3. svelte-check + 커밋
+
+## C-5b. Canvas 전환 (성능)
+
+bloghub (1166 노드 / 1934 엣지) 에서 SVG + Svelte reactivity 가 60fps 를 못 유지 — Canvas 로 렌더링 교체.
+
+- d3-force 시뮬레이션 그대로 유지
+- `<canvas>` + `requestAnimationFrame` 직접 그리기, Svelte reactivity 우회 (simNodes/simLinks 는 plain mutable)
+- d3-zoom 으로 transform 핸들, ctx.translate/scale 적용
+- 포인터 이벤트 직접 처리:
+  - down/move/up 으로 노드 드래그 (hit-test = 거리 비교)
+  - hover 시 floating label
+  - 클릭 (드래그 X) 시 onSelect 콜백
+- 줌 > 0.8 일 때 viewport 안 노드만 ctx.fillText
+- 노드 800+ 시 alphaDecay 0.05 (빠른 안정화)
+- DPR 인식 (디스플레이 해상도 맞춰 sharper)
+- ResizeObserver 로 컨테이너 크기 변화 대응
