@@ -6,72 +6,98 @@
     forceCenter,
     forceCollide,
   } from "d3-force";
-  import { zoom, zoomIdentity } from "d3-zoom";
+  import { zoom } from "d3-zoom";
   import { select } from "d3-selection";
   import { drag } from "d3-drag";
-  import type { LinkGraph, GraphNode, GraphEdge } from "$lib/types";
+  import type { GraphifyEdge, GraphifyGraph, GraphifyNode } from "$lib/types";
 
   interface Props {
-    graph: LinkGraph;
+    graph: GraphifyGraph;
     activeNodeIds?: Set<string> | null;
+    onSelect?: (node: GraphifyNode) => void;
   }
 
-  let { graph, activeNodeIds = null }: Props = $props();
+  let { graph, activeNodeIds = null, onSelect }: Props = $props();
+
+  // 12색 팔레트 (Tableau 10 + 2 보충). community % 12 매핑.
+  const COMMUNITY_PALETTE: string[] = [
+    "#4e79a7", "#f28e2b", "#e15759", "#76b7b2",
+    "#59a14f", "#edc948", "#b07aa1", "#ff9da7",
+    "#9c755f", "#bab0ac", "#86bc86", "#fb8072",
+  ];
+  const UNKNOWN_COLOR = "#888888";
+
+  function nodeColor(community: number | null): string {
+    if (community === null || community === undefined) return UNKNOWN_COLOR;
+    const idx = Math.abs(community) % COMMUNITY_PALETTE.length;
+    return COMMUNITY_PALETTE[idx];
+  }
 
   function nodeOpacity(id: string): number {
     if (activeNodeIds === null) return 1;
     return activeNodeIds.has(id) ? 1 : 0.15;
   }
 
-  function edgeOpacity(srcId: string, tgtId: string): number {
-    if (activeNodeIds === null) return 0.6;
-    return activeNodeIds.has(srcId) && activeNodeIds.has(tgtId) ? 0.6 : 0.1;
+  function edgeOpacity(srcId: string, tgtId: string, score: number): number {
+    const base = Math.max(0.3, Math.min(score, 1.0));
+    if (activeNodeIds === null) return base;
+    return activeNodeIds.has(srcId) && activeNodeIds.has(tgtId) ? base : 0.08;
+  }
+
+  function edgeStrokeWidth(confidence: string): number {
+    switch (confidence) {
+      case "EXTRACTED": return 1.0;
+      case "INFERRED": return 0.6;
+      case "AMBIGUOUS": return 0.6;
+      default: return 0.4;
+    }
+  }
+
+  function edgeDashArray(confidence: string): string {
+    return confidence === "AMBIGUOUS" || confidence === "UNKNOWN" ? "3,3" : "";
   }
 
   let svgEl: SVGSVGElement;
   let width = $state(800);
   let height = $state(600);
 
-  interface SimNode extends GraphNode {
+  interface SimNode extends GraphifyNode {
     x: number;
     y: number;
     vx: number;
     vy: number;
     fx: number | null;
     fy: number | null;
+    degree: number;
   }
 
   interface SimLink {
     source: SimNode | string;
     target: SimNode | string;
+    edge: GraphifyEdge;
   }
 
   let nodes = $state<SimNode[]>([]);
   let links = $state<SimLink[]>([]);
   let transform = $state({ x: 0, y: 0, k: 1 });
 
-  const typeColors: Record<string, string> = {
-    til: "#3b82f6",
-    decision: "#eab308",
-    reading: "#22c55e",
-    meeting: "#a78bfa",
-    idea: "#f59e0b",
-    artifact: "#ec4899",
-    clipping: "#06b6d4",
-    moc: "#f97316",
-    unknown: "#888888",
-  };
-
-  function nodeColor(type?: string): string {
-    return typeColors[type ?? "unknown"] ?? typeColors.unknown;
+  function nodeRadius(degree: number): number {
+    return Math.sqrt(degree + 1) * 3 + 4;
   }
 
-  function nodeRadius(linkCount: number): number {
-    return Math.sqrt(linkCount + 1) * 3 + 4;
+  function handleNodeClick(n: SimNode): void {
+    onSelect?.(n);
   }
 
   $effect(() => {
     if (!graph || !svgEl) return;
+
+    // degree 계산
+    const degMap = new Map<string, number>();
+    for (const e of graph.edges) {
+      degMap.set(e.source, (degMap.get(e.source) ?? 0) + 1);
+      degMap.set(e.target, (degMap.get(e.target) ?? 0) + 1);
+    }
 
     const simNodes: SimNode[] = graph.nodes.map((n) => ({
       ...n,
@@ -81,22 +107,24 @@
       vy: 0,
       fx: null,
       fy: null,
+      degree: degMap.get(n.id) ?? 0,
     }));
+    const idSet = new Set(simNodes.map((n) => n.id));
 
     const simLinks: SimLink[] = graph.edges
-      .filter((e) => simNodes.some((n) => n.id === e.source) && simNodes.some((n) => n.id === e.target))
-      .map((e) => ({ source: e.source, target: e.target }));
+      .filter((e) => idSet.has(e.source) && idSet.has(e.target))
+      .map((e) => ({ source: e.source, target: e.target, edge: e }));
 
     const sim = forceSimulation(simNodes)
       .force(
         "link",
         forceLink<SimNode, SimLink>(simLinks)
           .id((d) => d.id)
-          .distance(60)
+          .distance(60),
       )
       .force("charge", forceManyBody().strength(-120))
       .force("center", forceCenter(width / 2, height / 2))
-      .force("collision", forceCollide<SimNode>().radius((d) => nodeRadius(d.link_count) + 2));
+      .force("collision", forceCollide<SimNode>().radius((d) => nodeRadius(d.degree) + 2));
 
     sim.on("tick", () => {
       nodes = [...simNodes];
@@ -109,7 +137,6 @@
       .on("zoom", (event) => {
         transform = { x: event.transform.x, y: event.transform.y, k: event.transform.k };
       });
-
     select(svgEl).call(zoomBehavior);
 
     // Drag
@@ -129,8 +156,7 @@
         d.fy = null;
       });
 
-    // 시뮬레이션 안정화 후 드래그 적용
-    const applyDrag = () => {
+    const applyDrag = (): void => {
       select(svgEl)
         .selectAll<SVGCircleElement, SimNode>("circle.node")
         .data(simNodes, (d) => d.id)
@@ -163,9 +189,10 @@
           y1={s.y}
           x2={t.x}
           y2={t.y}
-          stroke="#333"
-          stroke-width="0.5"
-          stroke-opacity={edgeOpacity(s.id, t.id)}
+          stroke="#999"
+          stroke-width={edgeStrokeWidth(link.edge.confidence)}
+          stroke-dasharray={edgeDashArray(link.edge.confidence)}
+          stroke-opacity={edgeOpacity(s.id, t.id, link.edge.confidence_score)}
         />
       {/if}
     {/each}
@@ -173,15 +200,23 @@
     <!-- Nodes -->
     {#each nodes as node}
       {@const op = nodeOpacity(node.id)}
-      <a href="/view?path={encodeURIComponent(node.path)}">
+      {@const r = nodeRadius(node.degree)}
+      {@const color = nodeColor(node.community)}
+      <g
+        class="cursor-pointer"
+        onclick={() => handleNodeClick(node)}
+        onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") handleNodeClick(node); }}
+        role="button"
+        tabindex="-1"
+      >
         <circle
           class="node"
           cx={node.x}
           cy={node.y}
-          r={nodeRadius(node.link_count)}
-          fill={nodeColor(node.note_type)}
+          r={r}
+          fill={color}
           fill-opacity="0.85"
-          stroke={nodeColor(node.note_type)}
+          stroke={color}
           stroke-width="1.5"
           stroke-opacity="0.4"
           opacity={op}
@@ -189,17 +224,17 @@
         {#if transform.k > 0.6}
           <text
             x={node.x}
-            y={node.y - nodeRadius(node.link_count) - 3}
+            y={node.y - r - 3}
             text-anchor="middle"
             fill="#ccc"
-            font-size="{Math.min(10 / transform.k, 11)}"
+            font-size={Math.min(10 / transform.k, 11)}
             opacity={op}
-            class="pointer-events-none"
+            class="pointer-events-none select-none"
           >
-            {node.title}
+            {node.label}
           </text>
         {/if}
-      </a>
+      </g>
     {/each}
   </g>
 </svg>
