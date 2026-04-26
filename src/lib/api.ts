@@ -35,8 +35,11 @@ export function createQuickNote(
   return invoke("create_quick_note", { title, content, tags, projectId });
 }
 
-export function clipUrl(request: ClipRequest): Promise<ClipResult> {
-  return invoke("clip_url", { request });
+export function clipUrl(
+  request: ClipRequest,
+  projectId: string | null = null,
+): Promise<ClipResult> {
+  return invoke("clip_url", { request, projectId });
 }
 
 export function listProjects(): Promise<ProjectEntry[]> {

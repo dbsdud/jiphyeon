@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import {
+    clipUrl,
     createQuickNote,
     getActiveProject,
     listProjects,
@@ -21,6 +22,10 @@
   let tagsInput = $state("");
   let saving = $state(false);
   let error = $state("");
+
+  // url tab fields
+  let url = $state("");
+  let urlTagsInput = $state("");
 
   onMount(async () => {
     try {
@@ -70,11 +75,41 @@
     }
   }
 
+  async function clipUrlNow(): Promise<void> {
+    if (!url.trim()) {
+      error = "URL 을 입력해주세요.";
+      return;
+    }
+    if (!selectedProjectId) {
+      error = "프로젝트를 선택해주세요.";
+      return;
+    }
+    saving = true;
+    error = "";
+    try {
+      const tags = urlTagsInput.split(",").map((t) => t.trim()).filter(Boolean);
+      const result = await clipUrl(
+        { url: url.trim(), tags: tags.length > 0 ? tags : undefined },
+        selectedProjectId,
+      );
+      if (result.success) {
+        await closeWindow();
+      } else {
+        error = result.error ?? "클리핑 실패";
+      }
+    } catch (e) {
+      error = String(e);
+    } finally {
+      saving = false;
+    }
+  }
+
   function handleKeydown(e: KeyboardEvent): void {
     if (e.key === "Escape") {
       closeWindow();
     } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       if (tab === "note") saveNote();
+      else if (tab === "url") clipUrlNow();
     }
   }
 </script>
@@ -145,11 +180,28 @@
           class="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded text-fg placeholder:text-fg-muted focus:outline-none focus:border-accent shrink-0"
           bind:value={tagsInput}
         />
+      {:else if tab === "url"}
+        <input
+          type="url"
+          placeholder="https://..."
+          class="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded text-fg placeholder:text-fg-muted focus:outline-none focus:border-accent shrink-0"
+          bind:value={url}
+        />
+        <input
+          type="text"
+          placeholder="태그 (쉼표로 구분)"
+          class="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded text-fg placeholder:text-fg-muted focus:outline-none focus:border-accent shrink-0"
+          bind:value={urlTagsInput}
+        />
+        <p class="text-xs text-fg-muted shrink-0">
+          저장 위치: <code class="px-1 py-0.5 rounded bg-surface-2">docs/clippings/</code>
+        </p>
+        <div class="flex-1"></div>
       {:else}
         <div class="flex-1 flex items-center justify-center text-center px-4">
           <div>
-            <p class="text-sm text-fg mb-2">{tab === "url" ? "URL 클리핑" : "녹음"} 탭</p>
-            <p class="text-xs text-fg-muted">Slice D-{tab === "url" ? "2" : "3"} 에서 추가 예정.</p>
+            <p class="text-sm text-fg mb-2">녹음 탭</p>
+            <p class="text-xs text-fg-muted">Slice D-3 에서 추가 예정.</p>
           </div>
         </div>
       {/if}
@@ -174,6 +226,14 @@
           disabled={saving || !selectedProjectId}
         >
           {saving ? "저장 중..." : "저장 (⌘+Enter)"}
+        </button>
+      {:else if tab === "url"}
+        <button
+          class="text-xs px-4 py-1.5 rounded bg-accent text-accent-fg hover:bg-accent/80 transition-colors disabled:opacity-50"
+          onclick={clipUrlNow}
+          disabled={saving || !selectedProjectId || !url.trim()}
+        >
+          {saving ? "클리핑 중..." : "Clip (⌘+Enter)"}
         </button>
       {/if}
     </div>
