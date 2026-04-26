@@ -17,6 +17,7 @@ use crate::project::{
 };
 use crate::vault::parser::extract_frontmatter;
 use crate::watcher::{self, WatcherState};
+use crate::workspace::{create_project_symlink, ensure_workspace_dir, is_link_broken};
 
 const TITLE_SCAN_BYTES: usize = 4096;
 const DEFAULT_EXCLUDE_TREE_DIRS: &[&str] = &[".git", ".claude", "node_modules", "target"];
@@ -110,7 +111,7 @@ pub fn register_project(
     }
     let normalized = normalize_root(&raw);
 
-    // docs/ 처리
+    // docs/ 처리 — 실제 root 기준
     let docs_dir = normalized.join("docs");
     if !docs_dir.exists() {
         if create_docs {
@@ -127,17 +128,33 @@ pub fn register_project(
 
     let new_id = derive_project_id(&normalized);
 
+    let workspace_path = {
+        let config = config_state
+            .read()
+            .map_err(|e| AppError::VaultNotFound(e.to_string()))?;
+        config.workspace_path.clone()
+    };
+    ensure_workspace_dir(&workspace_path)?;
+
     let entry: ProjectEntry = {
         let mut config = config_state
             .write()
             .map_err(|e| AppError::VaultNotFound(e.to_string()))?;
 
         if let Some(existing) = config.projects.iter().find(|p| p.id == new_id).cloned() {
-            // 동일 root 재등록 → 활성만 전환
+            // 동일 root 재등록 → 활성만 전환 (link 는 그대로 재사용)
             config.active_project_id = Some(existing.id.clone());
             existing
         } else {
-            let entry = new_project_entry(normalized.clone(), name);
+            let requested_name = name
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(String::from)
+                .unwrap_or_else(|| derive_project_name(&normalized));
+            let link_path =
+                create_project_symlink(&workspace_path, &requested_name, &normalized)?;
+            let entry = new_project_entry(normalized.clone(), link_path, name);
             config.projects.push(entry.clone());
             config.active_project_id = Some(entry.id.clone());
             entry
@@ -568,14 +585,51 @@ fn build_explorer_node(
     }
 }
 
+/// 부팅 시 호출. workspace 보장 + 모든 등록 항목에 대해 link_path 가 비었거나
+/// 깨졌으면 best-effort 로 symlink 재생성. 실패해도 panic 안 함.
+/// link_path / docs_path / graphify_out_path 가 갱신된 경우 config 도 새로 저장.
+pub fn migrate_workspace_links(
+    workspace_path: &Path,
+    projects: &mut [ProjectEntry],
+) -> bool {
+    let mut changed = false;
+    for entry in projects.iter_mut() {
+        let needs_migration = entry.link_path.as_os_str().is_empty()
+            || is_link_broken(&entry.link_path);
+        if !needs_migration {
+            continue;
+        }
+        let requested = if entry.name.trim().is_empty() {
+            crate::project::derive_project_name(&entry.root_path)
+        } else {
+            entry.name.clone()
+        };
+        match create_project_symlink(workspace_path, &requested, &entry.root_path) {
+            Ok(link) => {
+                entry.link_path = link.clone();
+                entry.docs_path = link.join("docs");
+                entry.graphify_out_path = link.join("graphify-out");
+                changed = true;
+            }
+            Err(e) => {
+                eprintln!(
+                    "workspace 마이그레이션 실패 ({}): {e}",
+                    entry.root_path.display()
+                );
+            }
+        }
+    }
+    changed
+}
+
 /// 호출 시점의 graph.json mtime 으로 last_graphify_at 재계산.
 fn refresh_last_graphify(mut entry: ProjectEntry) -> ProjectEntry {
     entry.last_graphify_at = read_last_graphify_at(&entry.graphify_out_path);
     entry
 }
 
-/// config 저장 + 활성 프로젝트 root 기준으로 watcher 재시작.
-/// 활성 프로젝트가 없으면 watcher 미기동.
+/// config 저장 + workspace hub 전체를 감시하도록 watcher 재시작.
+/// hub 가 없으면 (정상 부팅 시 ensure 됨) watcher 미기동.
 fn persist_and_restart_watcher(
     config_state: &ConfigState,
     watcher_state: &WatcherState,
@@ -594,19 +648,17 @@ fn persist_and_restart_watcher(
         .unwrap_or_else(|_| PathBuf::from("."));
     save_config(&config_snapshot, &app_data_dir)?;
 
-    let watch_root = config_snapshot.active_project().map(|p| p.root_path.clone());
-
     {
         let mut guard = watcher_state
             .lock()
             .map_err(|e| AppError::VaultNotFound(e.to_string()))?;
-        *guard = None; // 기존 watcher drop
+        *guard = None;
     }
 
-    if let Some(root) = watch_root {
+    if config_snapshot.workspace_path.is_dir() {
         let new_watcher = watcher::start_watching(
             app_handle.clone(),
-            &root,
+            &config_snapshot.workspace_path,
             &config_snapshot.exclude_dirs,
             config_snapshot.watch_debounce_ms,
             (*notifications_state).clone(),
@@ -694,7 +746,8 @@ mod tests {
         fs::create_dir_all(dir.path().join("graphify-out")).unwrap();
         fs::write(dir.path().join("graphify-out/graph.json"), "{}").unwrap();
 
-        let entry = new_project_entry(dir.path().to_path_buf(), None);
+        let p = dir.path().to_path_buf();
+        let entry = new_project_entry(p.clone(), p, None);
         let refreshed = refresh_last_graphify(entry);
         assert!(refreshed.last_graphify_at.is_some());
     }
@@ -702,7 +755,8 @@ mod tests {
     #[test]
     fn refresh_keeps_none_when_absent() {
         let dir = TempDir::new().unwrap();
-        let entry = new_project_entry(dir.path().to_path_buf(), None);
+        let p = dir.path().to_path_buf();
+        let entry = new_project_entry(p.clone(), p, None);
         let refreshed = refresh_last_graphify(entry);
         assert!(refreshed.last_graphify_at.is_none());
     }
@@ -989,7 +1043,8 @@ mod tests {
     #[test]
     fn active_project_resolution_via_config() {
         let dir = TempDir::new().unwrap();
-        let entry = new_project_entry(dir.path().to_path_buf(), None);
+        let p = dir.path().to_path_buf();
+        let entry = new_project_entry(p.clone(), p, None);
         let id = entry.id.clone();
         let config = AppConfig {
             projects: vec![entry.clone()],

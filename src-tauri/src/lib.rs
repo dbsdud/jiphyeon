@@ -8,15 +8,18 @@ mod notifications;
 mod project;
 mod vault;
 mod watcher;
+mod workspace;
 
 use std::sync::{Arc, Mutex, RwLock};
 
 use tauri::Manager;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-use config::{load_config, ConfigState};
+use commands::projects::migrate_workspace_links;
+use config::{load_config, save_config, ConfigState};
 use notifications::{NotificationsOffset, NotificationsState};
 use watcher::WatcherState;
+use workspace::ensure_workspace_dir;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -53,17 +56,32 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .unwrap_or_else(|_| std::path::PathBuf::from("."));
-            let config = load_config(&app_data_dir);
+            let mut config = load_config(&app_data_dir);
+
+            // workspace hub 보장 + 기존 등록 best-effort 마이그레이션
+            if let Err(e) = ensure_workspace_dir(&config.workspace_path) {
+                eprintln!("workspace 디렉토리 준비 실패: {e}");
+            } else {
+                let changed = migrate_workspace_links(
+                    &config.workspace_path.clone(),
+                    &mut config.projects,
+                );
+                if changed {
+                    if let Err(e) = save_config(&config, &app_data_dir) {
+                        eprintln!("마이그레이션 후 config 저장 실패: {e}");
+                    }
+                }
+            }
 
             let watcher_state: WatcherState = Arc::new(Mutex::new(None));
             let notifications_state: NotificationsState =
                 Arc::new(Mutex::new(NotificationsOffset::default()));
 
-            // 활성 프로젝트가 있으면 watcher 시작
-            if let Some(project) = config.active_project() {
+            // workspace 가 준비되어 있으면 hub 전체를 감시
+            if config.workspace_path.is_dir() {
                 match watcher::start_watching(
                     app.handle().clone(),
-                    &project.root_path,
+                    &config.workspace_path,
                     &config.exclude_dirs,
                     config.watch_debounce_ms,
                     notifications_state.clone(),

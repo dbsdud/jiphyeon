@@ -18,8 +18,14 @@ use serde::{Deserialize, Serialize};
 pub struct ProjectEntry {
     pub id: String,
     pub name: String,
+    /// 사용자가 선택한 실제 폴더 (symlink 의 target).
     pub root_path: PathBuf,
+    /// `~/Jiphyeon/<name>` symlink. 마이그레이션 전 구버전 config 는 root_path 폴백.
+    #[serde(default)]
+    pub link_path: PathBuf,
+    /// 노트 디렉토리. v2.5 부터 `link_path/docs` 기준.
     pub docs_path: PathBuf,
+    /// graphify 출력. v2.5 부터 `link_path/graphify-out` 기준.
     pub graphify_out_path: PathBuf,
     pub registered_at: String,
     pub last_graphify_at: Option<String>,
@@ -73,14 +79,19 @@ pub fn read_last_graphify_at(graphify_out_path: &Path) -> Option<String> {
 }
 
 /// 새 ProjectEntry 생성. id, registered_at, last_graphify_at 자동 채움.
-/// root_path 는 호출 전 normalize_root 를 거쳤다고 가정.
-pub fn new_project_entry(root_path: PathBuf, name: Option<String>) -> ProjectEntry {
+/// `link_path` 는 hub symlink 경로(보통 `~/Jiphyeon/<name>`).
+/// `docs_path`/`graphify_out_path` 는 link_path 기준으로 채워진다.
+pub fn new_project_entry(
+    root_path: PathBuf,
+    link_path: PathBuf,
+    name: Option<String>,
+) -> ProjectEntry {
     let id = derive_project_id(&root_path);
     let resolved_name = name
         .filter(|n| !n.trim().is_empty())
         .unwrap_or_else(|| derive_project_name(&root_path));
-    let docs_path = root_path.join("docs");
-    let graphify_out_path = root_path.join("graphify-out");
+    let docs_path = link_path.join("docs");
+    let graphify_out_path = link_path.join("graphify-out");
     let last_graphify_at = read_last_graphify_at(&graphify_out_path);
     let registered_at = Utc::now().to_rfc3339();
 
@@ -88,6 +99,7 @@ pub fn new_project_entry(root_path: PathBuf, name: Option<String>) -> ProjectEnt
         id,
         name: resolved_name,
         root_path,
+        link_path,
         docs_path,
         graphify_out_path,
         registered_at,
@@ -196,7 +208,9 @@ mod tests {
 
     #[test]
     fn new_entry_uses_basename_when_name_omitted() {
-        let entry = new_project_entry(PathBuf::from("/Users/uno/work/foo"), None);
+        let root = PathBuf::from("/Users/uno/work/foo");
+        let link = PathBuf::from("/Users/uno/Jiphyeon/foo");
+        let entry = new_project_entry(root, link, None);
         assert_eq!(entry.name, "foo");
     }
 
@@ -204,6 +218,7 @@ mod tests {
     fn new_entry_uses_provided_name_when_given() {
         let entry = new_project_entry(
             PathBuf::from("/Users/uno/work/foo"),
+            PathBuf::from("/Users/uno/Jiphyeon/foo"),
             Some("My Project".to_string()),
         );
         assert_eq!(entry.name, "My Project");
@@ -213,35 +228,41 @@ mod tests {
     fn new_entry_falls_back_when_name_is_blank() {
         let entry = new_project_entry(
             PathBuf::from("/Users/uno/work/foo"),
+            PathBuf::from("/Users/uno/Jiphyeon/foo"),
             Some("   ".to_string()),
         );
         assert_eq!(entry.name, "foo");
     }
 
     #[test]
-    fn new_entry_derives_paths() {
-        let entry = new_project_entry(PathBuf::from("/p"), None);
-        assert_eq!(entry.docs_path, PathBuf::from("/p/docs"));
-        assert_eq!(entry.graphify_out_path, PathBuf::from("/p/graphify-out"));
+    fn new_entry_derives_paths_from_link() {
+        let entry = new_project_entry(
+            PathBuf::from("/real/p"),
+            PathBuf::from("/hub/p"),
+            None,
+        );
+        assert_eq!(entry.docs_path, PathBuf::from("/hub/p/docs"));
+        assert_eq!(entry.graphify_out_path, PathBuf::from("/hub/p/graphify-out"));
     }
 
     #[test]
     fn new_entry_id_matches_derive() {
         let path = PathBuf::from("/some/proj");
-        let entry = new_project_entry(path.clone(), None);
+        let entry = new_project_entry(path.clone(), path.clone(), None);
         assert_eq!(entry.id, derive_project_id(&path));
     }
 
     #[test]
     fn new_entry_registered_at_is_rfc3339() {
-        let entry = new_project_entry(PathBuf::from("/p"), None);
+        let entry = new_project_entry(PathBuf::from("/p"), PathBuf::from("/p"), None);
         DateTime::parse_from_rfc3339(&entry.registered_at).expect("valid rfc3339");
     }
 
     #[test]
     fn new_entry_last_graphify_none_when_no_graph_json() {
         let dir = TempDir::new().unwrap();
-        let entry = new_project_entry(dir.path().to_path_buf(), None);
+        let p = dir.path().to_path_buf();
+        let entry = new_project_entry(p.clone(), p, None);
         assert!(entry.last_graphify_at.is_none());
     }
 
@@ -252,7 +273,8 @@ mod tests {
         fs::create_dir_all(&out).unwrap();
         fs::write(out.join("graph.json"), "{}").unwrap();
 
-        let entry = new_project_entry(dir.path().to_path_buf(), None);
+        let p = dir.path().to_path_buf();
+        let entry = new_project_entry(p.clone(), p, None);
         assert!(entry.last_graphify_at.is_some());
     }
 }

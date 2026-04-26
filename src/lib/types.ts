@@ -48,6 +48,7 @@ export interface ProjectEntry {
   id: string;
   name: string;
   root_path: string;
+  link_path: string;
   docs_path: string;
   graphify_out_path: string;
   registered_at: string;
@@ -84,6 +85,7 @@ export interface ProjectInspection {
 }
 
 export interface AppConfig {
+  workspace_path: string;
   projects: ProjectEntry[];
   active_project_id: string | null;
   watch_debounce_ms: number;
