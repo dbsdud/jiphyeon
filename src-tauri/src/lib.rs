@@ -133,6 +133,7 @@ pub fn run() {
             commands::transcribe::save_recording,
             commands::transcribe::delete_recording,
             commands::transcribe::list_recordings,
+            commands::transcribe::open_capture_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

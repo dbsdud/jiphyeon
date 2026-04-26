@@ -120,14 +120,25 @@ export function detectEditors(): Promise<DetectedEditor[]> {
   return invoke("detect_editors");
 }
 
-export function saveRecording(filename: string, bytes: Uint8Array): Promise<string> {
-  return invoke("save_recording", { filename, bytes: Array.from(bytes) });
+export function saveRecording(
+  filename: string,
+  bytes: Uint8Array,
+  projectId: string | null = null,
+): Promise<string> {
+  return invoke("save_recording", { filename, bytes: Array.from(bytes), projectId });
 }
 
-export function deleteRecording(filename: string): Promise<void> {
-  return invoke("delete_recording", { filename });
+export function deleteRecording(
+  filename: string,
+  projectId: string | null = null,
+): Promise<void> {
+  return invoke("delete_recording", { filename, projectId });
 }
 
-export function listRecordings(): Promise<RecordingEntry[]> {
-  return invoke("list_recordings");
+export function listRecordings(projectId: string | null = null): Promise<RecordingEntry[]> {
+  return invoke("list_recordings", { projectId });
+}
+
+export function openCaptureWindow(): Promise<void> {
+  return invoke("open_capture_window");
 }

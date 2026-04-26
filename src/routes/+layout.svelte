@@ -3,7 +3,6 @@
   import { onMount, onDestroy } from "svelte";
   import { page } from "$app/state";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-  import WebClipDialog from "$lib/components/WebClipDialog.svelte";
   import Toast from "$lib/components/Toast.svelte";
   import ProjectOnboarding from "$lib/components/ProjectOnboarding.svelte";
   import AddProjectModal from "$lib/components/AddProjectModal.svelte";
@@ -13,6 +12,7 @@
     switchProject,
     removeProject,
     getConfig,
+    openCaptureWindow,
     updateConfig,
   } from "$lib/api";
   import type {
@@ -37,7 +37,7 @@
     label: string;
     icon: string;
     href?: string;
-    action?: "clip";
+    action?: "capture";
     disabled?: boolean;
     disabledReason?: string;
   };
@@ -59,8 +59,7 @@
     {
       title: "작업",
       items: [
-        { action: "clip", label: "Clip", icon: "✂️" },
-        { href: "/transcribe", label: "Transcribe", icon: "🎙️" },
+        { action: "capture", label: "Capture", icon: "✏️" },
       ],
     },
     {
@@ -72,7 +71,6 @@
   ];
 
   let currentPath = $derived(page.url.pathname as string);
-  let clipOpen = $state(false);
   let toastMessage = $state("");
   let toastType = $state<NotificationLevel>("success");
   let toastVisible = $state(false);
@@ -203,10 +201,14 @@
     }
   }
 
-  function onClipSuccess(path: string, title: string) {
-    toastMessage = `Clipped: ${title}`;
-    toastType = "success";
-    toastVisible = true;
+  async function openCapture(): Promise<void> {
+    try {
+      await openCaptureWindow();
+    } catch (e) {
+      toastMessage = `Capture 창 열기 실패: ${e}`;
+      toastType = "error";
+      toastVisible = true;
+    }
   }
 
   // Slice 1.6 — 사이드바 토글. 즉시 UI 반영 + AppConfig persist.
@@ -315,11 +317,11 @@
               {group.title}
             </div>
             {#each group.items as item}
-              {#if item.action === "clip"}
+              {#if item.action === "capture"}
                 <button
                   type="button"
                   class="sidebar-item w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors text-fg-muted hover:text-fg hover:bg-surface-2"
-                  onclick={() => { clipOpen = true; }}
+                  onclick={openCapture}
                   title={item.label}
                 >
                   <span>{item.icon}</span>
@@ -365,11 +367,6 @@
   </div>
 
   <!-- Global overlays -->
-  <WebClipDialog
-    open={clipOpen}
-    onclose={() => { clipOpen = false; }}
-    onsuccess={onClipSuccess}
-  />
   <Toast
     message={toastMessage}
     type={toastType}
