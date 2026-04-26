@@ -144,6 +144,38 @@ export interface GraphReport {
   communities: GraphReportCommunity[];
 }
 
+export interface CrossProjectMember {
+  project_id: string;
+  project_name: string;
+}
+
+export interface CrossProjectNode {
+  id: string;
+  label: string;
+  original_id: string;
+  project_id: string;
+  community: number | null;
+  file_type: string | null;
+  source_file: string | null;
+  norm_label: string | null;
+}
+
+export interface CrossProjectEdge {
+  source: string;
+  target: string;
+  relation: string;
+  confidence: GraphifyConfidence;
+  confidence_score: number;
+  project_id: string | null;
+  is_bridge: boolean;
+}
+
+export interface CrossProjectGraph {
+  nodes: CrossProjectNode[];
+  edges: CrossProjectEdge[];
+  members: CrossProjectMember[];
+}
+
 export interface GraphifyStatus {
   project_id: string | null;
   graphify_out_path: string | null;

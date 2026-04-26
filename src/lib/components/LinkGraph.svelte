@@ -1,3 +1,30 @@
+<script lang="ts" module>
+  /**
+   * LinkGraph 가 직접 렌더하는 단일 노드/엣지 모델.
+   * single 모드와 cross 모드의 어댑터가 GraphifyGraph / CrossProjectGraph 를 이 형태로 변환.
+   */
+  export interface NodeView {
+    id: string;
+    label: string;
+    community: number | null;
+    project_id: string | null;
+    source_file: string | null;
+  }
+
+  export interface EdgeView {
+    source: string;
+    target: string;
+    confidence: string;
+    confidence_score: number;
+    is_bridge: boolean;
+  }
+
+  export interface GraphView {
+    nodes: NodeView[];
+    edges: EdgeView[];
+  }
+</script>
+
 <script lang="ts">
   import {
     forceSimulation,
@@ -9,42 +36,51 @@
   } from "d3-force";
   import { zoom, zoomIdentity, type ZoomTransform } from "d3-zoom";
   import { select } from "d3-selection";
-  import { drag } from "d3-drag";
-  import type { GraphifyEdge, GraphifyGraph, GraphifyNode } from "$lib/types";
   import { onMount } from "svelte";
 
   interface Props {
-    graph: GraphifyGraph;
+    graph: GraphView;
     activeNodeIds?: Set<string> | null;
-    onSelect?: (node: GraphifyNode) => void;
+    onSelect?: (nodeId: string) => void;
   }
 
   let { graph, activeNodeIds = null, onSelect }: Props = $props();
 
-  // 12색 커뮤니티 팔레트 (Tableau 10 + 2 보충)
+  // 12색 커뮤니티 팔레트
   const COMMUNITY_PALETTE: string[] = [
     "#4e79a7", "#f28e2b", "#e15759", "#76b7b2",
     "#59a14f", "#edc948", "#b07aa1", "#ff9da7",
     "#9c755f", "#bab0ac", "#86bc86", "#fb8072",
   ];
+  const PROJECT_PALETTE: string[] = [
+    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
+    "#9467bd", "#8c564b", "#e377c2", "#17becf",
+  ];
   const UNKNOWN_COLOR = "#888888";
+  const BRIDGE_COLOR = "#ff79c6";
 
-  function nodeColor(community: number | null | undefined): string {
-    if (community === null || community === undefined) return UNKNOWN_COLOR;
-    return COMMUNITY_PALETTE[Math.abs(community) % COMMUNITY_PALETTE.length];
+  function communityColor(c: number | null): string {
+    if (c === null || c === undefined) return UNKNOWN_COLOR;
+    return COMMUNITY_PALETTE[Math.abs(c) % COMMUNITY_PALETTE.length];
+  }
+
+  function projectColor(pid: string | null): string {
+    if (!pid) return UNKNOWN_COLOR;
+    let h = 0;
+    for (let i = 0; i < pid.length; i += 1) h = (h * 31 + pid.charCodeAt(i)) >>> 0;
+    return PROJECT_PALETTE[h % PROJECT_PALETTE.length];
   }
 
   function nodeRadius(degree: number): number {
     return Math.sqrt(degree + 1) * 3 + 4;
   }
 
-  // SimNode: d3-force가 직접 변형하므로 plain mutable 객체로 둠 (Svelte $state 우회).
   interface SimNode {
     id: string;
     label: string;
     community: number | null;
+    project_id: string | null;
     source_file: string | null;
-    raw: GraphifyNode;
     degree: number;
     x: number;
     y: number;
@@ -57,7 +93,7 @@
   interface SimLink {
     source: SimNode | string;
     target: SimNode | string;
-    edge: GraphifyEdge;
+    edge: EdgeView;
   }
 
   let canvasEl: HTMLCanvasElement;
@@ -72,9 +108,9 @@
   let cssWidth = 800;
   let cssHeight = 600;
   let rafId: number | null = null;
-  let dirty = true; // redraw 필요 플래그
-  // 활성 필터 변화 감지를 위한 마지막 set (참조 비교)
+  let dirty = true;
   let lastActive: Set<string> | null = null;
+  let hasMultipleProjects = false;
 
   function requestRedraw(): void {
     dirty = true;
@@ -104,13 +140,34 @@
     return lastActive.has(srcId) && lastActive.has(tgtId) ? base : 0.06;
   }
 
-  function edgeStroke(confidence: string): { width: number; dash: number[] } {
-    switch (confidence) {
-      case "EXTRACTED": return { width: 1.0, dash: [] };
-      case "INFERRED": return { width: 0.6, dash: [] };
-      case "AMBIGUOUS": return { width: 0.6, dash: [3, 3] };
-      default: return { width: 0.4, dash: [3, 3] };
+  interface EdgeStyle {
+    color: string;
+    width: number;
+    dash: number[];
+  }
+
+  function edgeStyle(e: EdgeView): EdgeStyle {
+    if (e.is_bridge) {
+      return { color: BRIDGE_COLOR, width: 1.5, dash: [6, 3] };
     }
+    switch (e.confidence) {
+      case "EXTRACTED": return { color: "#999999", width: 1.0, dash: [] };
+      case "INFERRED": return { color: "#999999", width: 0.6, dash: [] };
+      case "AMBIGUOUS": return { color: "#999999", width: 0.6, dash: [3, 3] };
+      default: return { color: "#999999", width: 0.4, dash: [3, 3] };
+    }
+  }
+
+  function applyAlpha(hex: string, alpha: number): string {
+    const h = hex.replace("#", "");
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+
+  function rgbaWithAlpha(rgbHex: string, alpha: number): string {
+    return applyAlpha(rgbHex, alpha);
   }
 
   function draw(): void {
@@ -121,7 +178,6 @@
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssWidth, cssHeight);
-    // d3-zoom transform
     ctx.translate(transform.x, transform.y);
     ctx.scale(transform.k, transform.k);
 
@@ -130,13 +186,13 @@
       const s = typeof l.source === "object" ? l.source : null;
       const t = typeof l.target === "object" ? l.target : null;
       if (!s || !t) continue;
-      const stroke = edgeStroke(l.edge.confidence);
+      const style = edgeStyle(l.edge);
       ctx.beginPath();
       ctx.moveTo(s.x, s.y);
       ctx.lineTo(t.x, t.y);
-      ctx.lineWidth = stroke.width / transform.k;
-      ctx.setLineDash(stroke.dash.map((d) => d / transform.k));
-      ctx.strokeStyle = `rgba(153,153,153,${edgeOpacity(s.id, t.id, l.edge.confidence_score)})`;
+      ctx.lineWidth = style.width / transform.k;
+      ctx.setLineDash(style.dash.map((d) => d / transform.k));
+      ctx.strokeStyle = rgbaWithAlpha(style.color, edgeOpacity(s.id, t.id, l.edge.confidence_score));
       ctx.stroke();
     }
     ctx.setLineDash([]);
@@ -145,23 +201,23 @@
     for (const n of simNodes) {
       const r = nodeRadius(n.degree);
       const op = nodeOpacity(n.id);
-      const color = nodeColor(n.community);
+      const fill = communityColor(n.community);
+      const stroke = hasMultipleProjects ? projectColor(n.project_id) : fill;
       ctx.beginPath();
       ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = applyAlpha(color, 0.85 * op);
+      ctx.fillStyle = applyAlpha(fill, 0.85 * op);
       ctx.fill();
-      ctx.lineWidth = 1.5 / transform.k;
-      ctx.strokeStyle = applyAlpha(color, 0.4 * op);
+      ctx.lineWidth = (hasMultipleProjects ? 2.0 : 1.5) / transform.k;
+      ctx.strokeStyle = applyAlpha(stroke, (hasMultipleProjects ? 0.9 : 0.4) * op);
       ctx.stroke();
     }
 
-    // Labels (줌 충분히 들어왔을 때만 + viewport culling)
+    // Labels (viewport culling)
     if (transform.k > 0.8) {
       const fontPx = Math.min(11, 11 / transform.k);
       ctx.font = `${fontPx}px ui-sans-serif, system-ui, sans-serif`;
       ctx.textAlign = "center";
       ctx.fillStyle = "#cccccc";
-      // viewport 안의 노드만 텍스트 그림
       const invK = 1 / transform.k;
       const minX = -transform.x * invK;
       const minY = -transform.y * invK;
@@ -177,15 +233,6 @@
     ctx.restore();
   }
 
-  function applyAlpha(hex: string, alpha: number): string {
-    // hex (#rrggbb) → rgba()
-    const h = hex.replace("#", "");
-    const r = parseInt(h.slice(0, 2), 16);
-    const g = parseInt(h.slice(2, 4), 16);
-    const b = parseInt(h.slice(4, 6), 16);
-    return `rgba(${r},${g},${b},${alpha})`;
-  }
-
   function loop(): void {
     if (sim && (sim.alpha() > sim.alphaMin() || dirty)) {
       draw();
@@ -195,7 +242,6 @@
   }
 
   function findNode(cssX: number, cssY: number): SimNode | null {
-    // CSS 좌표 → 그래프 좌표
     const x = (cssX - transform.x) / transform.k;
     const y = (cssY - transform.y) / transform.k;
     let best: SimNode | null = null;
@@ -245,7 +291,6 @@
       requestRedraw();
       return;
     }
-    // hover label
     const hit = findNode(cx, cy);
     if (hit) {
       hoverEl = { x: cx, y: cy, label: hit.label };
@@ -267,14 +312,13 @@
         // ignore
       }
       if (!didDrag) {
-        onSelect?.(node.raw);
+        onSelect?.(node.id);
       }
     }
   }
 
   function rebuild(): void {
     sim?.stop();
-    // degree 계산
     const degMap = new Map<string, number>();
     for (const e of graph.edges) {
       degMap.set(e.source, (degMap.get(e.source) ?? 0) + 1);
@@ -285,8 +329,8 @@
       id: n.id,
       label: n.label,
       community: n.community,
+      project_id: n.project_id,
       source_file: n.source_file,
-      raw: n,
       degree: degMap.get(n.id) ?? 0,
       x: cssWidth / 2 + (Math.random() - 0.5) * 200,
       y: cssHeight / 2 + (Math.random() - 0.5) * 200,
@@ -300,7 +344,9 @@
       .filter((e) => idSet.has(e.source) && idSet.has(e.target))
       .map((e) => ({ source: e.source, target: e.target, edge: e }));
 
-    // 큰 그래프는 alpha decay 가속
+    const projectSet = new Set(simNodes.map((n) => n.project_id).filter((p) => p !== null));
+    hasMultipleProjects = projectSet.size > 1;
+
     const decay = simNodes.length > 800 ? 0.05 : 0.0228;
 
     sim = forceSimulation(simNodes)
@@ -325,11 +371,9 @@
     const ro = new ResizeObserver(() => ensureCanvasSize());
     ro.observe(containerEl);
 
-    // d3-zoom
     const z = zoom<HTMLCanvasElement, unknown>()
       .scaleExtent([0.1, 4])
       .filter((event) => {
-        // 노드 위에서는 zoom/pan 비활성 (드래그 우선)
         if (event.type === "mousedown" || event.type === "pointerdown") {
           const rect = canvasEl.getBoundingClientRect();
           const cx = (event as PointerEvent).clientX - rect.left;
@@ -353,15 +397,12 @@
     };
   });
 
-  // graph prop 변경 시 시뮬레이션 재구성
   $effect(() => {
     if (!canvasEl) return;
-    // dependency: graph identity
     void graph;
     rebuild();
   });
 
-  // activeNodeIds 변경 시 redraw 만 (simulation 영향 없음)
   $effect(() => {
     lastActive = activeNodeIds;
     requestRedraw();

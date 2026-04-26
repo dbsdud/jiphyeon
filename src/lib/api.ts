@@ -5,6 +5,7 @@ import type {
   ClipResult,
   AppConfig,
   AppConfigPatch,
+  CrossProjectGraph,
   DetectedEditor,
   ExplorerNode,
   FolderNode,
@@ -71,6 +72,16 @@ export function getGraphifyReport(): Promise<GraphReport> {
 
 export function getGraphifyStatus(): Promise<GraphifyStatus> {
   return invoke("get_graphify_status");
+}
+
+export function getCrossProjectGraph(
+  projectIds: string[],
+  mergeLabels: boolean,
+): Promise<CrossProjectGraph> {
+  return invoke("get_cross_project_graph", {
+    projectIds,
+    mergeLabels,
+  });
 }
 
 export function registerProject(
