@@ -6,6 +6,7 @@
   import Toast from "$lib/components/Toast.svelte";
   import ProjectOnboarding from "$lib/components/ProjectOnboarding.svelte";
   import AddProjectModal from "$lib/components/AddProjectModal.svelte";
+  import SearchPalette from "$lib/components/SearchPalette.svelte";
   import {
     getActiveProject,
     getPendingGraphify,
@@ -75,6 +76,7 @@
   ];
 
   let currentPath = $derived(page.url.pathname as string);
+  let paletteOpen = $state(false);
   let toastMessage = $state("");
   let toastType = $state<NotificationLevel>("success");
   let toastVisible = $state(false);
@@ -263,14 +265,24 @@
   }
 
   function onKeydown(e: KeyboardEvent) {
-    // Cmd/Ctrl + B: 사이드바 토글. input/textarea 포커스 중에는 무시.
-    if (!(e.key === "b" || e.key === "B")) return;
     if (!(e.metaKey || e.ctrlKey)) return;
     const target = e.target as HTMLElement | null;
     const tag = target?.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) return;
-    e.preventDefault();
-    toggleSidebar();
+    const inEditable = tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable;
+
+    // Cmd/Ctrl + K: 검색 팔레트. input/textarea 안에서도 동작.
+    if (e.key === "k" || e.key === "K") {
+      e.preventDefault();
+      paletteOpen = !paletteOpen;
+      return;
+    }
+
+    // Cmd/Ctrl + B: 사이드바 토글. 편집 중에는 무시.
+    if (e.key === "b" || e.key === "B") {
+      if (inEditable) return;
+      e.preventDefault();
+      toggleSidebar();
+    }
   }
 </script>
 
@@ -425,5 +437,9 @@
     open={addVaultOpen}
     onclose={() => { addVaultOpen = false; }}
     onadded={onProjectAdded}
+  />
+  <SearchPalette
+    open={paletteOpen}
+    onclose={() => { paletteOpen = false; }}
   />
 {/if}
