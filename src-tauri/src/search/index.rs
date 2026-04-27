@@ -68,15 +68,7 @@ pub struct SearchIndex {
     reader: IndexReader,
 }
 
-impl SearchIndex {
-    pub fn schema(&self) -> &SearchSchema {
-        &self.schema
-    }
-
-    pub fn raw(&self) -> &Index {
-        &self.inner
-    }
-}
+// SearchIndex 의 내부 필드는 같은 모듈 안의 함수들이 직접 사용.
 
 fn build_schema() -> (Schema, SearchSchema) {
     let mut b = SchemaBuilder::new();

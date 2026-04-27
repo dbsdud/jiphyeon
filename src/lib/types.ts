@@ -176,6 +176,18 @@ export interface CrossProjectGraph {
   members: CrossProjectMember[];
 }
 
+export type SearchKind = "file" | "node" | "qa";
+
+export interface SearchHit {
+  project_id: string;
+  project_name: string;
+  kind: SearchKind;
+  title: string;
+  snippet: string;
+  path: string;
+  score: number;
+}
+
 export type PendingStatus = "fresh" | "stale" | "not_run" | "no_project";
 
 export interface PendingGraphify {

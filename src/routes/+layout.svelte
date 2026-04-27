@@ -14,6 +14,7 @@
     removeProject,
     getConfig,
     openCaptureWindow,
+    reindexActiveProject,
     updateConfig,
   } from "$lib/api";
   import type {
@@ -121,6 +122,9 @@
     try {
       unlistenGraphifyUpdated = await listen("graphify-updated", () => {
         vaultRefresh.bump();
+        reindexActiveProject().catch((err) => {
+          console.warn("reindex_active_project 실패", err);
+        });
       });
     } catch (err) {
       console.error("graphify-updated listener 등록 실패", err);
