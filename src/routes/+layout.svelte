@@ -57,6 +57,7 @@
         { href: "/", label: "Dashboard", icon: "📊" },
         { href: "/explore", label: "Explore", icon: "📁" },
         { href: "/graph", label: "Graph", icon: "🔗" },
+        { href: "/search", label: "Search", icon: "🔍" },
       ],
     },
     {
