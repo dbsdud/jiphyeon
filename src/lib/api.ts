@@ -13,6 +13,8 @@ import type {
   GraphifyStatus,
   GraphReport,
   PendingGraphify,
+  SearchHit,
+  SearchKind,
   ProjectEntry,
   ProjectFileEntry,
   ProjectInspection,
@@ -81,6 +83,28 @@ export function getGraphifyStatus(): Promise<GraphifyStatus> {
 
 export function getPendingGraphify(): Promise<PendingGraphify> {
   return invoke("get_pending_graphify");
+}
+
+export function searchAll(
+  query: string,
+  projectFilter: string[] | null = null,
+  kindFilter: SearchKind[] | null = null,
+  limit: number | null = null,
+): Promise<SearchHit[]> {
+  return invoke("search", {
+    query,
+    projectFilter,
+    kindFilter,
+    limit,
+  });
+}
+
+export function reindexActiveProject(): Promise<number> {
+  return invoke("reindex_active_project");
+}
+
+export function reindexAllProjects(): Promise<number> {
+  return invoke("reindex_all_projects");
 }
 
 export function getCrossProjectGraph(

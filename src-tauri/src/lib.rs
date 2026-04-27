@@ -7,6 +7,7 @@ mod graphify;
 mod models;
 mod notifications;
 mod project;
+mod search;
 mod vault;
 mod watcher;
 mod workspace;
@@ -17,8 +18,10 @@ use tauri::Manager;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 use commands::projects::migrate_workspace_links;
+use commands::search::SearchState;
 use config::{load_config, save_config, ConfigState};
 use notifications::{NotificationsOffset, NotificationsState};
+use search::open_or_create as open_search_index;
 use watcher::WatcherState;
 use workspace::ensure_workspace_dir;
 
@@ -99,9 +102,36 @@ pub fn run() {
             }
 
             let config_state: ConfigState = Arc::new(RwLock::new(config));
-            app.manage(config_state);
+            app.manage(config_state.clone());
             app.manage(watcher_state);
             app.manage(notifications_state);
+
+            // 검색 인덱스 초기화 + 백그라운드 reindex_all
+            let index_dir = app_data_dir.join("search-index");
+            match open_search_index(&index_dir) {
+                Ok(idx) => {
+                    let search_state: SearchState = Arc::new(RwLock::new(idx));
+                    app.manage(search_state.clone());
+                    let cfg_clone = config_state.clone();
+                    std::thread::spawn(move || {
+                        let projects = match cfg_clone.read() {
+                            Ok(c) => c.projects.clone(),
+                            Err(_) => return,
+                        };
+                        let idx = match search_state.read() {
+                            Ok(g) => g,
+                            Err(_) => return,
+                        };
+                        match search::reindex_all(&idx, &projects) {
+                            Ok(n) => eprintln!("초기 검색 인덱싱 완료: {n} 문서"),
+                            Err(e) => eprintln!("초기 검색 인덱싱 실패: {e}"),
+                        }
+                    });
+                }
+                Err(e) => {
+                    eprintln!("검색 인덱스 초기화 실패: {e}");
+                }
+            }
 
             if let Err(e) = app.global_shortcut().register(shortcut) {
                 eprintln!("글로벌 단축키 등록 실패: {e}");
@@ -135,6 +165,9 @@ pub fn run() {
             commands::transcribe::delete_recording,
             commands::transcribe::list_recordings,
             commands::transcribe::open_capture_window,
+            commands::search::search,
+            commands::search::reindex_active_project,
+            commands::search::reindex_all_projects,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
