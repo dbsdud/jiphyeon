@@ -7,6 +7,7 @@ use std::fs;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 const BOM: &[u8; 3] = &[0xEF, 0xBB, 0xBF];
 
@@ -142,8 +143,10 @@ struct RawLink {
     target: String,
     #[serde(default)]
     relation: Option<String>,
+    /// graphify 가 일부 링크에서 confidence 를 string("EXTRACTED") 대신 number(1.0)로 내보내는 경우가 있어
+    /// 타입을 가리지 않고 받기 위해 Value 로 둠. into_graph 에서 string 만 enum 매핑.
     #[serde(default)]
-    confidence: Option<GraphifyConfidence>,
+    confidence: Option<Value>,
     #[serde(default)]
     confidence_score: Option<f64>,
     #[serde(default)]
@@ -162,11 +165,23 @@ struct RawHyperedge {
     #[serde(default)]
     relation: Option<String>,
     #[serde(default)]
-    confidence: Option<GraphifyConfidence>,
+    confidence: Option<Value>,
     #[serde(default)]
     confidence_score: Option<f64>,
     #[serde(default)]
     source_file: Option<String>,
+}
+
+fn parse_confidence(v: Option<Value>) -> GraphifyConfidence {
+    match v {
+        Some(Value::String(s)) => match s.to_ascii_uppercase().as_str() {
+            "EXTRACTED" => GraphifyConfidence::Extracted,
+            "INFERRED" => GraphifyConfidence::Inferred,
+            "AMBIGUOUS" => GraphifyConfidence::Ambiguous,
+            _ => GraphifyConfidence::Unknown,
+        },
+        _ => GraphifyConfidence::Unknown,
+    }
 }
 
 impl RawGraphFile {
@@ -192,7 +207,7 @@ impl RawGraphFile {
                 source: l.source,
                 target: l.target,
                 relation: l.relation.unwrap_or_default(),
-                confidence: l.confidence.unwrap_or(GraphifyConfidence::Unknown),
+                confidence: parse_confidence(l.confidence),
                 confidence_score: l.confidence_score.unwrap_or(1.0),
                 source_file: l.source_file,
                 weight: l.weight.unwrap_or(1.0),
@@ -208,7 +223,7 @@ impl RawGraphFile {
                 id: h.id,
                 nodes: h.nodes,
                 relation: h.relation.unwrap_or_default(),
-                confidence: h.confidence.unwrap_or(GraphifyConfidence::Unknown),
+                confidence: parse_confidence(h.confidence),
                 confidence_score: h.confidence_score.unwrap_or(1.0),
                 source_file: h.source_file,
             })
@@ -286,7 +301,7 @@ mod tests {
 
         let g = read_graphify_graph(&out).unwrap();
         assert_eq!(g.nodes.len(), 3);
-        assert_eq!(g.edges.len(), 3);
+        assert_eq!(g.edges.len(), 4);
         assert_eq!(g.hyperedges.len(), 1);
         assert_eq!(g.hyperedges[0].nodes.len(), 3);
     }
@@ -305,6 +320,7 @@ mod tests {
                 GraphifyConfidence::Extracted,
                 GraphifyConfidence::Inferred,
                 GraphifyConfidence::Unknown, // "WEIRD" -> Unknown
+                GraphifyConfidence::Unknown, // 숫자 1.0 -> Unknown (graphify 출력 변종)
             ]
         );
     }
@@ -316,10 +332,30 @@ mod tests {
         copy_fixture("sample.json", &out);
 
         let g = read_graphify_graph(&out).unwrap();
-        // 마지막 엣지(WEIRD)는 weight + confidence_score 모두 누락
-        let last = &g.edges[2];
-        assert_eq!(last.weight, 1.0);
-        assert_eq!(last.confidence_score, 1.0);
+        // WEIRD 엣지는 weight + confidence_score 모두 누락
+        let weird = &g.edges[2];
+        assert_eq!(weird.weight, 1.0);
+        assert_eq!(weird.confidence_score, 1.0);
+    }
+
+    #[test]
+    fn numeric_confidence_falls_back_to_unknown() {
+        // graphify 가 일부 링크에서 confidence 를 number 로 내보내는 변종.
+        // 파싱 실패가 아니라 Unknown 으로 폴백해야 함 (river-of-fallen-stars 회귀 방지).
+        let dir = TempDir::new().unwrap();
+        let out = dir.path().join("graphify-out");
+        fs::create_dir_all(&out).unwrap();
+        let json = r#"{
+            "directed": false, "multigraph": false, "graph": {},
+            "nodes": [{"id": "a"}, {"id": "b"}],
+            "links": [{"source": "a", "target": "b", "confidence": 1.0, "confidence_score": 0.95}]
+        }"#;
+        fs::write(out.join("graph.json"), json).unwrap();
+
+        let g = read_graphify_graph(&out).expect("variant graph.json must parse");
+        assert_eq!(g.edges.len(), 1);
+        assert_eq!(g.edges[0].confidence, GraphifyConfidence::Unknown);
+        assert_eq!(g.edges[0].confidence_score, 0.95);
     }
 
     #[test]

@@ -3,19 +3,21 @@
   import { onMount, onDestroy } from "svelte";
   import { page } from "$app/state";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-  import WebClipDialog from "$lib/components/WebClipDialog.svelte";
   import Toast from "$lib/components/Toast.svelte";
   import ProjectOnboarding from "$lib/components/ProjectOnboarding.svelte";
   import AddProjectModal from "$lib/components/AddProjectModal.svelte";
   import {
     getActiveProject,
+    getPendingGraphify,
     listProjects,
     switchProject,
     removeProject,
     getConfig,
+    openCaptureWindow,
     updateConfig,
   } from "$lib/api";
   import type {
+    PendingGraphify,
     ProjectEntry,
     NotificationEvent,
     NotificationLevel,
@@ -37,7 +39,7 @@
     label: string;
     icon: string;
     href?: string;
-    action?: "clip";
+    action?: "capture";
     disabled?: boolean;
     disabledReason?: string;
   };
@@ -59,8 +61,7 @@
     {
       title: "작업",
       items: [
-        { action: "clip", label: "Clip", icon: "✂️" },
-        { href: "/transcribe", label: "Transcribe", icon: "🎙️" },
+        { action: "capture", label: "Capture", icon: "✏️" },
       ],
     },
     {
@@ -72,7 +73,6 @@
   ];
 
   let currentPath = $derived(page.url.pathname as string);
-  let clipOpen = $state(false);
   let toastMessage = $state("");
   let toastType = $state<NotificationLevel>("success");
   let toastVisible = $state(false);
@@ -137,6 +137,40 @@
   let activeProject = $state<ProjectEntry | null>(null);
   let activeProjectLoaded = $state(false);
   let projects = $state<ProjectEntry[]>([]);
+  let pending = $state<PendingGraphify | null>(null);
+
+  async function refreshPending(): Promise<void> {
+    try {
+      pending = await getPendingGraphify();
+    } catch (e) {
+      console.warn("get_pending_graphify failed", e);
+      pending = null;
+    }
+  }
+
+  $effect(() => {
+    vaultRefresh.version;
+    refreshPending();
+  });
+
+  function pendingDotClass(status: string | null | undefined): string {
+    switch (status) {
+      case "fresh": return "bg-success";
+      case "stale": return "bg-warning";
+      case "not_run": return "bg-fg-muted";
+      default: return "hidden";
+    }
+  }
+
+  function pendingTooltip(p: PendingGraphify | null): string {
+    if (!p) return "";
+    switch (p.status) {
+      case "fresh": return "graphify 최신";
+      case "stale": return `${p.changed_files_count}개 파일 변경 — graphify 재실행 권장`;
+      case "not_run": return "graphify 미실행";
+      default: return "";
+    }
+  }
   let addVaultOpen = $state(false);
   let vaultActionBusy = $state(false);
 
@@ -203,10 +237,14 @@
     }
   }
 
-  function onClipSuccess(path: string, title: string) {
-    toastMessage = `Clipped: ${title}`;
-    toastType = "success";
-    toastVisible = true;
+  async function openCapture(): Promise<void> {
+    try {
+      await openCaptureWindow();
+    } catch (e) {
+      toastMessage = `Capture 창 열기 실패: ${e}`;
+      toastType = "error";
+      toastVisible = true;
+    }
   }
 
   // Slice 1.6 — 사이드바 토글. 즉시 UI 반영 + AppConfig persist.
@@ -285,6 +323,13 @@
               >
                 <span class="shrink-0 text-xs">{isActive ? '●' : '○'}</span>
                 <span class="sidebar-vault-name truncate">{project.name}</span>
+                {#if isActive && pending}
+                  <span
+                    class="inline-block w-2 h-2 rounded-full shrink-0 ml-auto {pendingDotClass(pending.status)}"
+                    title={pendingTooltip(pending)}
+                    aria-label={pendingTooltip(pending)}
+                  ></span>
+                {/if}
               </button>
               {#if !isActive}
                 <button
@@ -315,11 +360,11 @@
               {group.title}
             </div>
             {#each group.items as item}
-              {#if item.action === "clip"}
+              {#if item.action === "capture"}
                 <button
                   type="button"
                   class="sidebar-item w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors text-fg-muted hover:text-fg hover:bg-surface-2"
-                  onclick={() => { clipOpen = true; }}
+                  onclick={openCapture}
                   title={item.label}
                 >
                   <span>{item.icon}</span>
@@ -365,11 +410,6 @@
   </div>
 
   <!-- Global overlays -->
-  <WebClipDialog
-    open={clipOpen}
-    onclose={() => { clipOpen = false; }}
-    onsuccess={onClipSuccess}
-  />
   <Toast
     message={toastMessage}
     type={toastType}

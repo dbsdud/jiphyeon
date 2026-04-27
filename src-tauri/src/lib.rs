@@ -42,8 +42,8 @@ pub fn run() {
                                 "capture",
                                 tauri::WebviewUrl::App("/capture".into()),
                             )
-                            .title("Quick Note")
-                            .inner_size(480.0, 360.0)
+                            .title("Capture")
+                            .inner_size(560.0, 460.0)
                             .resizable(false)
                             .always_on_top(true)
                             .build();
@@ -118,6 +118,7 @@ pub fn run() {
             commands::graphify::get_graphify_report,
             commands::graphify::get_graphify_status,
             commands::graphify::get_cross_project_graph,
+            commands::graphify::get_pending_graphify,
             commands::projects::list_projects,
             commands::projects::register_project,
             commands::projects::switch_project,
@@ -133,6 +134,7 @@ pub fn run() {
             commands::transcribe::save_recording,
             commands::transcribe::delete_recording,
             commands::transcribe::list_recordings,
+            commands::transcribe::open_capture_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

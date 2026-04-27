@@ -176,6 +176,16 @@ export interface CrossProjectGraph {
   members: CrossProjectMember[];
 }
 
+export type PendingStatus = "fresh" | "stale" | "not_run" | "no_project";
+
+export interface PendingGraphify {
+  project_id: string | null;
+  status: PendingStatus;
+  graph_run_at: number | null;
+  docs_changed_at: number | null;
+  changed_files_count: number;
+}
+
 export interface GraphifyStatus {
   project_id: string | null;
   graphify_out_path: string | null;

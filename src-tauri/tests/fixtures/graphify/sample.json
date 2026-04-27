@@ -58,6 +58,13 @@
       "target": "n_c",
       "relation": "mystery",
       "confidence": "WEIRD"
+    },
+    {
+      "source": "n_a",
+      "target": "n_b",
+      "relation": "numeric_conf",
+      "confidence": 1.0,
+      "confidence_score": 1.0
     }
   ]
 }

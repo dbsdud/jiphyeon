@@ -68,11 +68,19 @@ pub fn create_quick_note(
     title: Option<String>,
     content: String,
     tags: Vec<String>,
+    project_id: Option<String>,
 ) -> Result<String, AppError> {
     let config = config_state
         .read()
         .map_err(|e| AppError::NoteNotFound(e.to_string()))?;
-    let project = config.active_project().ok_or(AppError::VaultNotConfigured)?;
+    let project = match project_id.as_deref() {
+        Some(id) => config
+            .projects
+            .iter()
+            .find(|p| p.id == id)
+            .ok_or(AppError::VaultNotConfigured)?,
+        None => config.active_project().ok_or(AppError::VaultNotConfigured)?,
+    };
     let today = Local::now().format("%Y-%m-%d").to_string();
 
     let filename = match &title {

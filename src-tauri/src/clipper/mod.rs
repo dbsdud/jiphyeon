@@ -64,7 +64,7 @@ pub fn clip_url_with_html(
     let slug = slugify(&title);
     let filename = format!("{}-{}.md", today, slug);
 
-    let inbox_dir = docs_path.join("inbox");
+    let inbox_dir = docs_path.join("clippings");
     fs::create_dir_all(&inbox_dir)?;
 
     let tags_str = request
@@ -90,7 +90,7 @@ pub fn clip_url_with_html(
         today, request.url, author_str, tags_str, markdown
     );
 
-    let rel_path = format!("inbox/{}", filename);
+    let rel_path = format!("clippings/{}", filename);
     let full_path = docs_path.join(&rel_path);
     fs::write(&full_path, &content)?;
 
@@ -231,7 +231,7 @@ mod tests {
 
         let result = clip_url_with_html(&request, docs_path, html).unwrap();
         assert!(result.success);
-        assert!(result.path.starts_with("inbox/"));
+        assert!(result.path.starts_with("clippings/"));
         assert!(result.path.ends_with(".md"));
 
         let full_path = docs_path.join(&result.path);
@@ -245,10 +245,10 @@ mod tests {
     }
 
     #[test]
-    fn test_clip_url_creates_inbox_dir() {
+    fn test_clip_url_creates_clippings_dir() {
         let dir = TempDir::new().unwrap();
         let docs_path = dir.path();
-        assert!(!docs_path.join("inbox").exists());
+        assert!(!docs_path.join("clippings").exists());
 
         let html = "<html><head><title>T</title></head><body><p>C</p></body></html>";
         let request = ClipRequest {
@@ -258,6 +258,6 @@ mod tests {
 
         let result = clip_url_with_html(&request, docs_path, html).unwrap();
         assert!(result.success);
-        assert!(docs_path.join("inbox").exists());
+        assert!(docs_path.join("clippings").exists());
     }
 }

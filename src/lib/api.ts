@@ -12,6 +12,7 @@ import type {
   GraphifyGraph,
   GraphifyStatus,
   GraphReport,
+  PendingGraphify,
   ProjectEntry,
   ProjectFileEntry,
   ProjectInspection,
@@ -30,12 +31,16 @@ export function createQuickNote(
   title: string | null,
   content: string,
   tags: string[],
+  projectId: string | null = null,
 ): Promise<string> {
-  return invoke("create_quick_note", { title, content, tags });
+  return invoke("create_quick_note", { title, content, tags, projectId });
 }
 
-export function clipUrl(request: ClipRequest): Promise<ClipResult> {
-  return invoke("clip_url", { request });
+export function clipUrl(
+  request: ClipRequest,
+  projectId: string | null = null,
+): Promise<ClipResult> {
+  return invoke("clip_url", { request, projectId });
 }
 
 export function listProjects(): Promise<ProjectEntry[]> {
@@ -72,6 +77,10 @@ export function getGraphifyReport(): Promise<GraphReport> {
 
 export function getGraphifyStatus(): Promise<GraphifyStatus> {
   return invoke("get_graphify_status");
+}
+
+export function getPendingGraphify(): Promise<PendingGraphify> {
+  return invoke("get_pending_graphify");
 }
 
 export function getCrossProjectGraph(
@@ -116,14 +125,25 @@ export function detectEditors(): Promise<DetectedEditor[]> {
   return invoke("detect_editors");
 }
 
-export function saveRecording(filename: string, bytes: Uint8Array): Promise<string> {
-  return invoke("save_recording", { filename, bytes: Array.from(bytes) });
+export function saveRecording(
+  filename: string,
+  bytes: Uint8Array,
+  projectId: string | null = null,
+): Promise<string> {
+  return invoke("save_recording", { filename, bytes: Array.from(bytes), projectId });
 }
 
-export function deleteRecording(filename: string): Promise<void> {
-  return invoke("delete_recording", { filename });
+export function deleteRecording(
+  filename: string,
+  projectId: string | null = null,
+): Promise<void> {
+  return invoke("delete_recording", { filename, projectId });
 }
 
-export function listRecordings(): Promise<RecordingEntry[]> {
-  return invoke("list_recordings");
+export function listRecordings(projectId: string | null = null): Promise<RecordingEntry[]> {
+  return invoke("list_recordings", { projectId });
+}
+
+export function openCaptureWindow(): Promise<void> {
+  return invoke("open_capture_window");
 }

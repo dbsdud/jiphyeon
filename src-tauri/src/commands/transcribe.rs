@@ -3,10 +3,27 @@ use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
 use serde::Serialize;
-use tauri::State;
+use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 use crate::config::ConfigState;
 use crate::error::AppError;
+
+#[tauri::command]
+pub fn open_capture_window(app_handle: AppHandle) -> Result<(), AppError> {
+    if let Some(win) = app_handle.get_webview_window("capture") {
+        win.show().map_err(|e| AppError::Io(std::io::Error::other(e.to_string())))?;
+        win.set_focus().map_err(|e| AppError::Io(std::io::Error::other(e.to_string())))?;
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(&app_handle, "capture", WebviewUrl::App("/capture".into()))
+        .title("Capture")
+        .inner_size(560.0, 460.0)
+        .resizable(false)
+        .always_on_top(true)
+        .build()
+        .map_err(|e| AppError::Io(std::io::Error::other(e.to_string())))?;
+    Ok(())
+}
 
 const ALLOWED_EXTENSIONS: &[&str] = &["m4a", "webm", "ogg", "wav", "mp3"];
 const RECORDINGS_SUBDIR: &str = "_sources/recordings";
@@ -113,18 +130,34 @@ pub fn delete_recording_impl(vault_path: &Path, filename: &str) -> Result<(), Ap
     Ok(())
 }
 
+/// project_id 가 있으면 그 프로젝트의 docs_path, 없으면 활성 프로젝트.
+fn resolve_docs_path(
+    config: &crate::config::AppConfig,
+    project_id: Option<&str>,
+) -> Result<std::path::PathBuf, AppError> {
+    let project = match project_id {
+        Some(id) => config
+            .projects
+            .iter()
+            .find(|p| p.id == id)
+            .ok_or(AppError::VaultNotConfigured)?,
+        None => config.active_project().ok_or(AppError::VaultNotConfigured)?,
+    };
+    Ok(project.docs_path.clone())
+}
+
 #[tauri::command]
 pub fn save_recording(
     config_state: State<'_, ConfigState>,
     filename: String,
     bytes: Vec<u8>,
+    project_id: Option<String>,
 ) -> Result<String, AppError> {
     let config = config_state
         .read()
         .map_err(|e| AppError::VaultNotFound(e.to_string()))?;
-    let project = config.active_project().ok_or(AppError::VaultNotConfigured)?;
-    let vault_path = &project.docs_path;
-    let path = save_recording_impl(vault_path, &filename, &bytes)?;
+    let docs = resolve_docs_path(&config, project_id.as_deref())?;
+    let path = save_recording_impl(&docs, &filename, &bytes)?;
     Ok(path.to_string_lossy().to_string())
 }
 
@@ -132,25 +165,25 @@ pub fn save_recording(
 pub fn delete_recording(
     config_state: State<'_, ConfigState>,
     filename: String,
+    project_id: Option<String>,
 ) -> Result<(), AppError> {
     let config = config_state
         .read()
         .map_err(|e| AppError::VaultNotFound(e.to_string()))?;
-    let project = config.active_project().ok_or(AppError::VaultNotConfigured)?;
-    let vault_path = &project.docs_path;
-    delete_recording_impl(vault_path, &filename)
+    let docs = resolve_docs_path(&config, project_id.as_deref())?;
+    delete_recording_impl(&docs, &filename)
 }
 
 #[tauri::command]
 pub fn list_recordings(
     config_state: State<'_, ConfigState>,
+    project_id: Option<String>,
 ) -> Result<Vec<RecordingEntry>, AppError> {
     let config = config_state
         .read()
         .map_err(|e| AppError::VaultNotFound(e.to_string()))?;
-    let project = config.active_project().ok_or(AppError::VaultNotConfigured)?;
-    let vault_path = &project.docs_path;
-    list_recordings_impl(vault_path)
+    let docs = resolve_docs_path(&config, project_id.as_deref())?;
+    list_recordings_impl(&docs)
 }
 
 #[cfg(test)]
