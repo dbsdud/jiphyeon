@@ -367,7 +367,12 @@ fn collect_md(root: &Path, dir: &Path, out: &mut Vec<(PathBuf, String)>) {
 }
 
 fn title_from_path_or_frontmatter(body: &str, rel: &Path) -> String {
-    let head_len = body.len().min(TITLE_SCAN_BYTES);
+    // 한국어처럼 멀티바이트 문자가 4096 경계에 걸리면 직접 슬라이싱이 panic.
+    // 가장 가까운 이전 char boundary 까지 자른다.
+    let mut head_len = body.len().min(TITLE_SCAN_BYTES);
+    while head_len > 0 && !body.is_char_boundary(head_len) {
+        head_len -= 1;
+    }
     let head = &body[..head_len];
     if let Some(fm) = extract_frontmatter(head) {
         if let Some(t) = fm
@@ -527,6 +532,22 @@ mod tests {
         let only_nodes = search(&idx, "alpha", None, Some(&[SearchKind::Node]), 10).unwrap();
         assert_eq!(only_nodes.len(), 1);
         assert_eq!(only_nodes[0].kind, SearchKind::Node);
+    }
+
+    #[test]
+    fn reindex_handles_korean_body_at_char_boundary() {
+        // 4096바이트 경계에 한글이 걸리도록 본문을 구성. 회귀 테스트.
+        let dir = TempDir::new().unwrap();
+        let proj = project_in(dir.path(), "p1");
+        // 한글 한 글자 = 3바이트. 4095/3 = 1365 → 1365자 후 다음 글자가 4095..4097 영역에 걸림.
+        let mut body = String::with_capacity(8192);
+        for _ in 0..2000 {
+            body.push('한');
+        }
+        write_file(&proj.docs_path.join("ko.md"), &body);
+        let idx = open_or_create(&dir.path().join("idx")).unwrap();
+        let n = reindex_project(&idx, &proj).expect("must not panic on char boundary");
+        assert_eq!(n, 1);
     }
 
     #[test]
