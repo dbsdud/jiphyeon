@@ -7,6 +7,9 @@ mod graphify;
 mod models;
 mod notifications;
 mod project;
+// IPC 연결은 Slice E-2 에서 — 그 전까지 dead_code 경고 억제.
+#[allow(dead_code)]
+mod search;
 mod vault;
 mod watcher;
 mod workspace;
